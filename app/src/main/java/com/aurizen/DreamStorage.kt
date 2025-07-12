@@ -125,7 +125,7 @@ class DreamStorage private constructor(context: Context) {
         return themes.entries
             .sortedByDescending { it.value }
             .take(5)
-            .map { it.key.capitalize() }
+            .map { it.key.replaceFirstChar { char -> char.uppercase() } }
     }
 
     private fun calculateLongestStreak(entries: List<DreamEntry>): Int {

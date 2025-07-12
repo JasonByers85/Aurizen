@@ -197,9 +197,13 @@ Respond with only the summary sentence, nothing else."""
 
     companion object {
         fun getFactory(context: Context) = object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>, extras: CreationExtras): T {
-                val inferenceModel = InferenceModel.getInstance(context)
-                return DreamInterpreterViewModel(inferenceModel, context) as T
+                if (modelClass.isAssignableFrom(DreamInterpreterViewModel::class.java)) {
+                    val inferenceModel = InferenceModel.getInstance(context)
+                    return DreamInterpreterViewModel(inferenceModel, context) as T
+                }
+                throw IllegalArgumentException("Unknown ViewModel class")
             }
         }
     }

@@ -83,12 +83,15 @@ fun AuriZenTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            // Use gradient colors for status bar
+            
+            // Set status bar color with proper deprecation handling
+            @Suppress("DEPRECATION")
             window.statusBarColor = if (darkTheme) {
                 Color(0xFF1A1A2E).toArgb()
             } else {
                 Color(0xFF0F3460).toArgb()
             }
+            
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
         }
     }

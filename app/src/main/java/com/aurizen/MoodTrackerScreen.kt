@@ -627,7 +627,7 @@ private fun MoodHistoryCard(entry: MoodEntry) {
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = entry.mood.capitalize(),
+                text = entry.mood.replaceFirstChar { it.uppercase() },
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center

@@ -159,10 +159,10 @@ Mood fluctuations are completely normal. Your commitment to tracking emotions sh
         return """
         **Mood Tracking Summary:**
         - Total entries: $totalEntries (from $startDate to $endDate)
-        - Most common mood: ${moodCounts.maxByOrNull { it.value }?.key?.capitalize() ?: "N/A"}
+        - Most common mood: ${moodCounts.maxByOrNull { it.value }?.key?.replaceFirstChar { it.uppercase() } ?: "N/A"}
         
         **Mood Distribution:**
-        ${moodCounts.entries.joinToString("\n") { "- ${it.key.capitalize()}: ${it.value} times (${(it.value * 100 / totalEntries)}%)" }}
+        ${moodCounts.entries.joinToString("\n") { "- ${it.key.replaceFirstChar { char -> char.uppercase() }}: ${it.value} times (${(it.value * 100 / totalEntries)}%)" }}
         
         **Recent Trends:**
         - Positive mood days this week: $recentPositive/${recentDays.size}
@@ -245,9 +245,13 @@ Mood fluctuations are completely normal. Your commitment to tracking emotions sh
 
     companion object {
         fun getFactory(context: Context) = object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>, extras: CreationExtras): T {
-                val inferenceModel = InferenceModel.getInstance(context)
-                return MoodTrackerViewModel(inferenceModel, context) as T
+                if (modelClass.isAssignableFrom(MoodTrackerViewModel::class.java)) {
+                    val inferenceModel = InferenceModel.getInstance(context)
+                    return MoodTrackerViewModel(inferenceModel, context) as T
+                }
+                throw IllegalArgumentException("Unknown ViewModel class")
             }
         }
     }

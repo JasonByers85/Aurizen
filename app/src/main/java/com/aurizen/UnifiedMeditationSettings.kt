@@ -13,6 +13,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.VolumeDown
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -624,7 +626,7 @@ private fun AudioChannelCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    Icons.Default.VolumeDown,
+                    Icons.AutoMirrored.Filled.VolumeDown,
                     contentDescription = null,
                     modifier = Modifier.size(16.dp)
                 )
@@ -637,7 +639,7 @@ private fun AudioChannelCard(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Icon(
-                    Icons.Default.VolumeUp,
+                    Icons.AutoMirrored.Filled.VolumeUp,
                     contentDescription = null,
                     modifier = Modifier.size(16.dp)
                 )

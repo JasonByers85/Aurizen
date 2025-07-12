@@ -125,9 +125,13 @@ Response:"""
 
     companion object {
         fun getFactory(context: Context) = object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>, extras: CreationExtras): T {
-                val inferenceModel = InferenceModel.getInstance(context)
-                return QuickChatViewModel(inferenceModel, context) as T
+                if (modelClass.isAssignableFrom(QuickChatViewModel::class.java)) {
+                    val inferenceModel = InferenceModel.getInstance(context)
+                    return QuickChatViewModel(inferenceModel, context) as T
+                }
+                throw IllegalArgumentException("Unknown ViewModel class")
             }
         }
     }

@@ -15,5 +15,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "LLM Inference"
+rootProject.name = "AuriZen"
 include(":app")

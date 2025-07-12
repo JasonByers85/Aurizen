@@ -6,7 +6,7 @@ This is a sample app that demonstrates how to use the LLM Inference API to run c
 
 This application must be run on a physical Android device to take advantage of the device GPU.
 
-![LLM Inference Demo](llm_inference.png)
+
 
 ## How to Build the Demo App
 

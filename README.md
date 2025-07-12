@@ -81,7 +81,15 @@ Just small, mindful moments that help you feel more present.
 - **Local Processing**: All AI interactions happen on-device
 - **Model Storage**: Secure local file storage in app's internal directory
 - **Authentication**: OAuth integration with Hugging Face for model downloads
-- **Performance**: GPU acceleration with OpenCL support
+- **Performance**: GPU acceleration with OpenCL support available
+
+  Current Setting (Model.kt:24):
+  preferredBackend = Backend.CPU,
+
+  Available Options:
+  - Backend.CPU - Uses CPU only
+  - Backend.GPU - Uses GPU acceleration
+  - null - Let MediaPipe auto-select best available
 
 ### **Audio System**
 - **Background Sounds**: MediaPlayer-based audio streaming

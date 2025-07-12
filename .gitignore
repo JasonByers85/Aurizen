@@ -14,14 +14,9 @@
 .cxx
 local.properties
 
-# Large audio files
-*.ogg
-*.mp3
-*.wav
-
 # APK files
 *.apk
 *.aab
 
-# Native libraries
-*.so
+# Build artifacts - Native libraries from build process
+app/build/**/*.so

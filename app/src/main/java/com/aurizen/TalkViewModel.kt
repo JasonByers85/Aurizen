@@ -2,6 +2,7 @@ package com.aurizen
 
 import android.content.Context
 import android.speech.tts.TextToSpeech
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -17,9 +18,11 @@ class TalkViewModel(
     private val inferenceModel: InferenceModel,
     private val context: Context
 ) : ViewModel() {
+    
+    private val TAG = "TalkViewModel"
 
-    private val _chatHistory = MutableStateFlow<List<ChatMessage>>(emptyList())
-    val chatHistory: StateFlow<List<ChatMessage>> = _chatHistory.asStateFlow()
+    private val _chatHistory = MutableStateFlow<List<MultimodalChatMessage>>(emptyList())
+    val chatHistory: StateFlow<List<MultimodalChatMessage>> = _chatHistory.asStateFlow()
 
     private val _isListening = MutableStateFlow(false)
     val isListening: StateFlow<Boolean> = _isListening.asStateFlow()
@@ -41,6 +44,7 @@ class TalkViewModel(
     private val speechToTextHelper = TalkSpeechToTextHelper(context)
     private var textToSpeech: TextToSpeech? = null
     private val ttsSettings = TTSSettings.getInstance(context)
+    
 
     // Keep chat history limited for faster responses
     private val maxChatHistory = 10
@@ -114,6 +118,7 @@ class TalkViewModel(
             // Could show error message to user
         }
     }
+    
 
     private fun buildSystemPrompt(): String {
         // Get user memories for context
@@ -136,6 +141,7 @@ AuriZen's built-in features (recommend when relevant):
 ${if (memoriesContext.isNotEmpty()) "Context: $memoriesContext\n" else ""}
 Be natural and supportive in our conversation:"""
     }
+    
 
     private fun buildChatPrompt(userMessage: String): String {
         val systemPrompt = buildSystemPrompt()
@@ -144,7 +150,8 @@ Be natural and supportive in our conversation:"""
         val recentHistory = _chatHistory.value.takeLast(6) // Last 3 exchanges
         val historyText = if (recentHistory.isNotEmpty()) {
             val historyString = recentHistory.joinToString("\n") { message ->
-                if (message.isFromUser) "User: ${message.content}" else "AuriZen: ${message.content}"
+                val role = if (message.side == MessageSide.USER) "User" else "AuriZen"
+                "$role: ${message.getDisplayContent()}"
             }
             "Recent conversation:\n$historyString\n\n"
         } else {
@@ -183,10 +190,9 @@ AuriZen:"""
                 _isProcessing.value = true
 
                 // Add user message to chat
-                val userChatMessage = ChatMessage(
-                    id = UUID.randomUUID().toString(),
+                val userChatMessage = MultimodalChatMessage.TextMessage(
                     content = userMessage,
-                    isFromUser = true
+                    messageSide = MessageSide.USER
                 )
 
                 _chatHistory.value = _chatHistory.value + userChatMessage
@@ -202,10 +208,9 @@ AuriZen:"""
 
                     if (done) {
                         // Add AI response to chat
-                        val aiChatMessage = ChatMessage(
-                            id = UUID.randomUUID().toString(),
+                        val aiChatMessage = MultimodalChatMessage.TextMessage(
                             content = aiResponse.trim(),
-                            isFromUser = false
+                            messageSide = MessageSide.ASSISTANT
                         )
 
                         // Update chat history and limit size
@@ -227,10 +232,9 @@ AuriZen:"""
             } catch (e: Exception) {
                 val errorMessage = "I'm having trouble understanding right now. Could you try again?"
 
-                val aiChatMessage = ChatMessage(
-                    id = UUID.randomUUID().toString(),
+                val aiChatMessage = MultimodalChatMessage.TextMessage(
                     content = errorMessage,
-                    isFromUser = false
+                    messageSide = MessageSide.ASSISTANT
                 )
 
                 _chatHistory.value = _chatHistory.value + aiChatMessage
@@ -353,6 +357,7 @@ AuriZen:"""
         stopListening()
     }
 
+    
     override fun onCleared() {
         super.onCleared()
         textToSpeech?.shutdown()

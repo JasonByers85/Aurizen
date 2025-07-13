@@ -1732,27 +1732,113 @@ class UnifiedMeditationSessionViewModel(
                 MeditationStep("Peaceful Drift", "Settling into sleep",
                     "Let your breathing become slow and gentle. Feel your body completely at rest. Allow your thoughts to drift like leaves on a stream—coming and going without needing to follow them. Invite peace to fill your awareness. With each breath, feel yourself sinking deeper into stillness. Let the boundary between wakefulness and sleep begin to blur. Trust this process. You are safe, supported, and gently drifting into the comfort of sleep.", stepDuration)
             )
-            
+
             "anxiety_ease" -> listOf(
-                MeditationStep("Calming Arrival", "Finding your safe space",
-                    "Settle into a comfortable position. Place one hand on your chest and one on your belly. Feel the gentle rise and fall of your breathing. You are safe in this moment.", stepDuration),
-                MeditationStep("Soothing Breath", "Calming the nervous system", 
-                    "Breathe in slowly for four counts, hold gently for four, then exhale slowly for six counts. This longer exhale activates your body's natural relaxation response.", stepDuration),
-                MeditationStep("Peaceful Grounding", "Returning to calm",
-                    "Notice five things you can feel, four things you can hear, three things you can see in your mind. Feel yourself grounded, centered, and at peace.", stepDuration)
-            )
-            
+                MeditationStep(
+                    "Calming Arrival",
+                    "Finding your safe space",
+                    """
+        Settle into a comfortable position. Allow your body to be supported by the surface beneath you. 
+        Gently close your eyes. Bring your attention inward. 
+        Place one hand on your chest and one on your belly. Feel the rise and fall of each breath.
+        Notice the rhythm, the movement, the warmth of your body. 
+        With each breath, allow tension to melt away. Let yourself arrive fully in this moment.
+        This is your safe space. Nothing else matters right now.
+        """.trimIndent(),
+                    stepDuration
+                ),
+                MeditationStep(
+                    "Soothing Breath",
+                    "Calming the nervous system",
+                    """
+                        Begin to focus on your breath. Inhale deeply through your nose for a count of four… 
+                        1… 2… 3… 4. Hold that breath gently for four… 1… 2… 3… 4. 
+                        Now exhale slowly and fully through your mouth for a count of six… 1… 2… 3… 4… 5… 6.
+                        
+                        As you continue this pattern, notice your body softening. Each exhale signals your nervous system that it’s safe to relax.
+                        Allow your shoulders to drop, your jaw to unclench, your thoughts to slow. 
+                        Feel your whole system shifting into calm and balance.
+                        """.trimIndent(),
+                                    stepDuration
+                                ),
+                                MeditationStep(
+                                    "Peaceful Grounding",
+                                    "Returning to calm",
+                                    """
+                        Bring your awareness to your environment or imagination. 
+                        Notice five things you can feel: the floor beneath you, the fabric against your skin, the air on your face… 
+                        Four things you can hear: perhaps your breath, a soft hum, the sound of silence… 
+                        Three things you can see in your mind’s eye: colors, patterns, or familiar peaceful places.
+                
+                        Each layer of awareness gently anchors you to the present moment.
+                        With every breath, feel yourself becoming more grounded, rooted like a tree, steady and calm.
+                        You are safe. You are present. You are at peace.
+                        """.trimIndent(),
+                                    stepDuration
+                                )
+                            )
+
             "deep_relaxation" -> listOf(
-                MeditationStep("Settling Deep", "Beginning profound relaxation",
-                    "Find a very comfortable position. Let your body become completely supported. Begin to breathe more slowly and deeply, allowing each exhale to release tension.", stepDuration),
-                MeditationStep("Full Body Release", "Complete physical relaxation", 
-                    "Systematically relax every part of your body. Start with your scalp and slowly move down. Notice the difference between tension and relaxation. Let go completely.", stepDuration),
-                MeditationStep("Mental Stillness", "Deep inner calm",
-                    "As your body relaxes completely, allow your mind to become equally still. Rest in this space of deep peace and tranquility. You are completely at ease.", stepDuration),
-                MeditationStep("Integration", "Absorbing deep peace",
-                    "Rest in this profound state of relaxation. Feel the deep peace integrating into every cell of your body. When ready, slowly return to awareness.", stepDuration)
+                MeditationStep(
+                    "Settling Deep",
+                    "Beginning profound relaxation",
+                    """
+                        Find a position where your body feels completely supported—whether lying down or reclining. 
+                        Let your arms and legs relax. Allow the weight of your body to sink gently into the surface beneath you.
+                        
+                        Begin to take slower, deeper breaths. With each inhale, imagine drawing in calm and stillness.
+                        With each exhale, release any tension. let it melt away from your shoulders, your face, your chest.
+                        Soften into this stillness. Let this moment be just for you.
+                        """.trimIndent(),
+                                    stepDuration
+                ),
+                MeditationStep(
+                    "Full Body Release",
+                    "Complete physical relaxation",
+                    """
+                        Bring awareness to the top of your head. Gently invite it to relax. 
+                        Slowly scan downward—your forehead, eyes, jaw, neck. Let go of any tension as you pass each area.
+                
+                        Move to your shoulders, arms, hands… then your chest, stomach, hips. 
+                        Keep going—down through your legs, all the way to your toes. 
+                        Imagine a wave of warmth flowing through you, releasing every tight spot.
+                
+                        Notice the shift between holding and letting go. Allow your whole body to surrender into peace.
+                        """.trimIndent(),
+                    stepDuration
+                ),
+                MeditationStep(
+                    "Mental Stillness",
+                    "Deep inner calm",
+                    """
+                        As your body rests fully, turn now to your mind. 
+                        Imagine your thoughts as leaves floating gently on a stream—observe them without following.
+                
+                        With each breath, allow your mind to quiet, like a still pond with no ripples.
+                        There is nothing to do, nothing to fix, nothing to change.
+                
+                        Just be here in this space of calm awareness. Let the silence within you grow.
+                        You are deeply relaxed. You are safe. You are whole.
+                        """.trimIndent(),
+                    stepDuration
+                ),
+                MeditationStep(
+                    "Integration",
+                    "Absorbing deep peace",
+                    """
+                        Stay in this restful state, allowing the deep peace you've created to settle into your entire being.
+                        Feel it in your muscles, your breath, your heartbeat. Imagine each cell of your body being nourished by stillness.
+                
+                        There’s no rush. Let this experience soak in and become a part of you.
+                        When you're ready, begin to wiggle your fingers and toes. Gently bring your awareness back to the room.
+                
+                        Carry this sense of ease with you as you return. Know that this calm is always available to you.
+                        """.trimIndent(),
+                    stepDuration
+                )
             )
-            
+
+
             "mindful_awareness" -> listOf(
                 MeditationStep("Present Moment", "Arriving in awareness",
                 "Close your eyes and take three deep, conscious breaths. With each exhale, let go of any distractions and feel yourself arriving in this moment. Notice the sensation of your breath, the weight of your body, the sounds around you. Remind yourself that you don’t need to be anywhere else. This moment is enough. Feel the aliveness in your body—the gentle pulse of life. Presence begins now, with awareness of this simple, vivid experience.", stepDuration),

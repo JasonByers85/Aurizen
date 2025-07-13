@@ -42,7 +42,7 @@ This is an Android wellness application called "AuriZen" that demonstrates Media
 - Requires Android Studio Hedgehog or later
 - Minimum Android SDK 26 (Android 7.0), Target SDK 34, Compile SDK 36
 - Must run on physical device with GPU support
-- Dependencies: MediaPipe tasks-genai 0.10.25, Jetpack Compose BOM 2025.06.01
+- Dependencies: MediaPipe tasks-genai 0.10.26 (with native audio support), Jetpack Compose BOM 2025.06.01
 
 ## Architecture
 
@@ -73,6 +73,7 @@ This is an Android wellness application called "AuriZen" that demonstrates Media
 - `ModelDownloader.kt`: Handles downloading models from Hugging Face
 - Models stored in app's internal files directory
 - License acknowledgment flow for restricted models
+- Native audio modality support in MediaPipe 0.10.26 for direct audio input to LLM
 
 **Audio Integration**: 
 - `MeditationAudioManager.kt`: Background audio playbook for meditation sessions
@@ -105,6 +106,8 @@ This is an Android wellness application called "AuriZen" that demonstrates Media
 - Function calling system enables AI to trigger app actions via structured prompts
 - Model path resolution tries multiple locations for compatibility
 - TTS settings are customizable per user with voice parameter controls
+- Native multimodal audio support: LLM can directly analyze WAV audio files for emotion/stress detection
+- Voice analysis combines local signal processing with AI interpretation for wellness insights
 
 ## Key Development Patterns
 

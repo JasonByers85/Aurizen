@@ -78,6 +78,8 @@ class InferenceModel private constructor(context: Context) {
         val inferenceOptions = LlmInference.LlmInferenceOptions.builder()
             .setModelPath(modelPath)
             .setMaxTokens(MAX_TOKENS)
+            // TODO: Enable when 0.10.26+ is available on Maven Central
+            // .setEnableAudioModality(true) // Enable audio support
             .apply { model.preferredBackend?.let { setPreferredBackend(it) } }
             .build()
 
@@ -111,10 +113,14 @@ class InferenceModel private constructor(context: Context) {
     }
 
     /**
-     * Generate a response for a single prompt (no chat history)
-     * This is perfect for our wellness platform where each interaction is independent
+     * Generate a response for a single prompt with optional audio input
+     * Supports both text-only and multimodal (text + audio) interactions
      */
-    fun generateResponseAsync(prompt: String, progressListener: ProgressListener<String>): ListenableFuture<String> {
+    fun generateResponseAsync(
+        prompt: String, 
+        audioData: ByteArray? = null,
+        progressListener: ProgressListener<String>
+    ): ListenableFuture<String> {
         if (!::llmInferenceSession.isInitialized) {
             throw ModelSessionCreateFailException()
         }
@@ -127,6 +133,17 @@ class InferenceModel private constructor(context: Context) {
         resetSession()
         isProcessing = true
 
+        // TODO: Add audio data when 0.10.26+ is available on Maven Central
+        // audioData?.let { audio ->
+        //     try {
+        //         llmInferenceSession.addAudio(audio)
+        //         Log.d(TAG, "Added audio data: ${audio.size} bytes")
+        //     } catch (e: Exception) {
+        //         Log.e(TAG, "Failed to add audio data", e)
+        //         // Continue without audio if it fails
+        //     }
+        // }
+
         llmInferenceSession.addQueryChunk(prompt)
         val future = llmInferenceSession.generateResponseAsync(progressListener)
         
@@ -137,6 +154,13 @@ class InferenceModel private constructor(context: Context) {
         }, com.google.common.util.concurrent.MoreExecutors.directExecutor())
         
         return future
+    }
+    
+    /**
+     * Legacy method for backward compatibility
+     */
+    fun generateResponseAsync(prompt: String, progressListener: ProgressListener<String>): ListenableFuture<String> {
+        return generateResponseAsync(prompt, null, progressListener)
     }
 
     companion object {

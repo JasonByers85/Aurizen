@@ -37,13 +37,6 @@ import com.aurizen.ui.theme.AuriZenGradientBackground
 import kotlinx.coroutines.launch
 import java.util.*
 
-data class ChatMessage(
-    val id: String,
-    val content: String,
-    val isFromUser: Boolean,
-    val timestamp: Long = System.currentTimeMillis()
-)
-
 @Composable
 internal fun TalkRoute(
     onBack: () -> Unit
@@ -96,10 +89,12 @@ fun TalkScreen(
             // Top Bar
             TopAppBar(
                 title = {
-                    Text(
-                        text = "Talk with AuriZen",
-                        fontWeight = FontWeight.Bold
-                    )
+                    Column {
+                        Text(
+                            text = "Talk with AuriZen",
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -226,12 +221,12 @@ private fun WelcomeMessage() {
 }
 
 @Composable
-private fun ChatMessageItem(message: ChatMessage) {
+private fun ChatMessageItem(message: MultimodalChatMessage) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = if (message.isFromUser) Arrangement.End else Arrangement.Start
+        horizontalArrangement = if (message.isFromUser()) Arrangement.End else Arrangement.Start
     ) {
-        if (!message.isFromUser) {
+        if (!message.isFromUser()) {
             // AI Avatar
             Box(
                 modifier = Modifier
@@ -254,7 +249,7 @@ private fun ChatMessageItem(message: ChatMessage) {
         Card(
             modifier = Modifier.widthIn(max = 280.dp),
             colors = CardDefaults.cardColors(
-                containerColor = if (message.isFromUser) {
+                containerColor = if (message.isFromUser()) {
                     MaterialTheme.colorScheme.primary.copy(alpha = 0.9f)
                 } else {
                     MaterialTheme.colorScheme.surfaceVariant
@@ -263,23 +258,14 @@ private fun ChatMessageItem(message: ChatMessage) {
             shape = RoundedCornerShape(
                 topStart = 16.dp,
                 topEnd = 16.dp,
-                bottomStart = if (message.isFromUser) 16.dp else 4.dp,
-                bottomEnd = if (message.isFromUser) 4.dp else 16.dp
+                bottomStart = if (message.isFromUser()) 16.dp else 4.dp,
+                bottomEnd = if (message.isFromUser()) 4.dp else 16.dp
             )
         ) {
-            Text(
-                text = message.content,
-                modifier = Modifier.padding(12.dp),
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (message.isFromUser) {
-                    MaterialTheme.colorScheme.onPrimary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                }
-            )
+            MessageContent(message = message)
         }
         
-        if (message.isFromUser) {
+        if (message.isFromUser()) {
             Spacer(modifier = Modifier.width(8.dp))
             
             // User Avatar
@@ -300,6 +286,71 @@ private fun ChatMessageItem(message: ChatMessage) {
         }
     }
 }
+
+@Composable
+private fun MessageContent(message: MultimodalChatMessage) {
+    when (message) {
+        is MultimodalChatMessage.TextMessage -> {
+            Text(
+                text = message.content,
+                modifier = Modifier.padding(12.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (message.isFromUser()) {
+                    MaterialTheme.colorScheme.onPrimary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                }
+            )
+        }
+        
+        is MultimodalChatMessage.AudioClipMessage -> {
+            Column(modifier = Modifier.padding(12.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Mic,
+                        contentDescription = "Audio message",
+                        tint = if (message.isFromUser()) {
+                            MaterialTheme.colorScheme.onPrimary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        modifier = Modifier.size(16.dp)
+                    )
+                    
+                    Text(
+                        text = "🎤 Voice message (${String.format("%.1f", message.getDurationInSeconds())}s)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (message.isFromUser()) {
+                            MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                        }
+                    )
+                }
+                
+                message.transcription?.let { transcription ->
+                    if (transcription.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "\"$transcription\"",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (message.isFromUser()) {
+                                MaterialTheme.colorScheme.onPrimary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            }
+                        )
+                    }
+                }
+            }
+        }
+        
+    }
+}
+
 
 @Composable
 private fun StreamingResponseItem(streamingText: String) {
@@ -584,6 +635,7 @@ private fun VoiceInputSection(
                     }
                 }
             }
+            
         }
     }
 }

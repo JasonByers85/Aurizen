@@ -26,22 +26,46 @@ class QuickChatViewModel(
     val isInputEnabled: StateFlow<Boolean> = _isInputEnabled.asStateFlow()
 
     private val userProfile = UserProfile.getInstance(context)
+    private val goalsStorage = PersonalGoalsStorage.getInstance(context)
+    private val moodStorage = MoodStorage.getInstance(context)
 
-    private val systemPrompt = """You are a supportive AI wellness companion. Provide helpful, concise advice for mental health, stress management, and general wellness.
+    private fun buildSystemPrompt(): String {
+        // Get recent mood entries (last 5 days)
+        val recentMoods = moodStorage.getAllMoodEntries().takeLast(5)
+        val moodContext = if (recentMoods.isNotEmpty()) {
+            val moodSummary = recentMoods.joinToString(", ") { "${it.mood}" }
+            "Recent moods: $moodSummary"
+        } else {
+            "Recent moods: Not tracked recently"
+        }
+        
+        // Get active personal goals
+        val activeGoals = goalsStorage.getActiveGoals()
+        val goalsContext = if (activeGoals.isNotEmpty()) {
+            val goalsSummary = activeGoals.take(3).joinToString(", ") { "${it.title} (${it.category.displayName})" }
+            "Active goals: $goalsSummary"
+        } else {
+            "Active goals: None set"
+        }
+
+        return """You are a supportive AI wellness companion. Provide helpful, concise advice for mental health, stress management, and general wellness.
 
 Your guidelines:
 • Keep responses helpful but concise (2-3 paragraphs max)
-• Focus on practical, actionable advice
+• Focus on practical, actionable advice that connects to their goals and mood patterns
 • Be warm and supportive without being overly emotional
 • Provide specific techniques and strategies
 • Don't diagnose - suggest professional help when appropriate
 • Each conversation is independent, don't reference past interactions
 
 Current user context:
-- Mood: ${userProfile.mood}
+- Profile mood: ${userProfile.mood}
 - Recent topics: ${userProfile.getRecentTopics().joinToString(", ")}
+- $moodContext
+- $goalsContext
 
-Respond with practical wellness support:"""
+When relevant, connect your advice to their personal goals or recent mood patterns. Respond with practical wellness support:"""
+    }
 
     fun sendMessage(userMessage: String) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -50,7 +74,8 @@ Respond with practical wellness support:"""
                 _isInputEnabled.value = false
                 _response.value = "" // Clear previous response
 
-                // Build the complete prompt
+                // Build the complete prompt with fresh context
+                val systemPrompt = buildSystemPrompt()
                 val fullPrompt = """$systemPrompt
 
 User request: $userMessage

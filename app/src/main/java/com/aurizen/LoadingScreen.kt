@@ -170,7 +170,7 @@ fun DownloadIndicator(progress: Int, onCancel: () -> Unit) {
     ) {
         // AuriZen Logo
         Image(
-            painter = painterResource(id = R.raw.aurizen_logo),
+            painter = painterResource(id = R.drawable.aurizen_logo),
             contentDescription = "AuriZen Logo",
             modifier = Modifier
                 .height(90.dp)
@@ -232,7 +232,7 @@ fun LoadingIndicator() {
     ) {
         // Large AuriZen Logo
         Image(
-            painter = painterResource(id = R.raw.aurizen_logo),
+            painter = painterResource(id = R.drawable.aurizen_logo),
             contentDescription = "AuriZen Logo",
             modifier = Modifier
                 .height(110.dp)
@@ -278,7 +278,7 @@ fun ErrorMessage(
     ) {
         // AuriZen Logo
         Image(
-            painter = painterResource(id = R.raw.aurizen_logo),
+            painter = painterResource(id = R.drawable.aurizen_logo),
             contentDescription = "AuriZen Logo",
             modifier = Modifier
                 .height(90.dp)

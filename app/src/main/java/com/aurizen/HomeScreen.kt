@@ -35,6 +35,7 @@ internal fun HomeRoute(
     onNavigateToBreathing: () -> Unit,
     onNavigateToMoodTracker: () -> Unit,
     onNavigateToDreamInterpreter: () -> Unit,
+    onNavigateToPersonalGoals: () -> Unit
 ) {
     val context = LocalContext.current
     val userProfile = remember { UserProfile.getInstance(context) }
@@ -45,7 +46,8 @@ internal fun HomeRoute(
         onNavigateToMeditation = onNavigateToMeditation,
         onNavigateToBreathing = onNavigateToBreathing,
         onNavigateToMoodTracker = onNavigateToMoodTracker,
-        onNavigateToDreamInterpreter = onNavigateToDreamInterpreter
+        onNavigateToDreamInterpreter = onNavigateToDreamInterpreter,
+        onNavigateToPersonalGoals = onNavigateToPersonalGoals
     )
 }
 
@@ -56,7 +58,8 @@ fun HomeScreen(
     onNavigateToMeditation: () -> Unit,
     onNavigateToBreathing: () -> Unit,
     onNavigateToMoodTracker: () -> Unit,
-    onNavigateToDreamInterpreter: () -> Unit
+    onNavigateToDreamInterpreter: () -> Unit,
+    onNavigateToPersonalGoals: () -> Unit
 ) {
     AuriZenGradientBackground {
         Column(
@@ -86,7 +89,8 @@ fun HomeScreen(
                         onNavigateToMoodTracker = onNavigateToMoodTracker,
                         onNavigateToQuickChat = onNavigateToQuickChat,
                         onNavigateToBreathing = onNavigateToBreathing,
-                        onNavigateToDreamInterpreter = onNavigateToDreamInterpreter
+                        onNavigateToDreamInterpreter = onNavigateToDreamInterpreter,
+                        onNavigateToPersonalGoals = onNavigateToPersonalGoals
                     )
                 }
             }
@@ -105,7 +109,7 @@ private fun HeaderSection() {
         horizontalArrangement = Arrangement.Center
     ) {
         Image(
-            painter = painterResource(id = R.raw.aurizen_logo),
+            painter = painterResource(id = R.drawable.aurizen_logo),
             contentDescription = "AuriZen Logo",
             modifier = Modifier
                 .height(64.dp)
@@ -216,7 +220,8 @@ private fun MainFeaturesGrid(
     onNavigateToMoodTracker: () -> Unit,
     onNavigateToQuickChat: () -> Unit,
     onNavigateToBreathing: () -> Unit,
-    onNavigateToDreamInterpreter: () -> Unit
+    onNavigateToDreamInterpreter: () -> Unit,
+    onNavigateToPersonalGoals: () -> Unit
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -272,6 +277,23 @@ private fun MainFeaturesGrid(
                 onClick = onNavigateToDreamInterpreter,
                 modifier = Modifier.weight(1f)
             )
+        }
+        
+        // Goals row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            CompactFeatureCard(
+                title = "Personal Goals",
+                description = "Track progress",
+                icon = Icons.Default.Flag,
+                onClick = onNavigateToPersonalGoals,
+                modifier = Modifier.weight(1f)
+            )
+            
+            // Empty space for balance
+            Spacer(modifier = Modifier.weight(1f))
         }
     }
 }

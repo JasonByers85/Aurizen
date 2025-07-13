@@ -78,19 +78,25 @@ class MoodTrackerViewModel(
 
                 val moodSummary = analyzeMoodHistory(history)
 
-                val systemPrompt = """You are AuriZen, a supportive wellness AI within an app that provides meditations and breathing exercises. Analyze mood patterns and provide encouraging, actionable insights. When offering guidance, suggest using the meditation and breathing tools within this app.
+                val systemPrompt = """You are AuriZen, a supportive wellness AI within an app that provides meditations and breathing exercises. Analyze the user's mood journey and personal goals to provide encouraging, actionable insights that connect their emotional patterns with their life goals.
 
-Mood Analysis Data:
+User Context & Data:
 $moodSummary
 
-Provide insights in EXACTLY 4-5 short paragraphs (2-3 sentences each). Keep it concise and focused:
-1. Brief observation about their mood patterns
-2. Positive highlights and progress
-3. 2-3 practical suggestions for wellness (mention app's meditations/breathing exercises when relevant)
-4. Gentle encouragement for challenges
-5. Motivational closing (optional)
+Provide insights in EXACTLY 4-5 short paragraphs (2-3 sentences each). Focus on:
+1. Observation about mood patterns and any connections to their personal goals
+2. Positive highlights and progress (both mood and goal-related)
+3. 2-3 practical suggestions that connect mood management with goal achievement (mention app's meditations/breathing exercises when relevant)
+4. Gentle encouragement for challenges, relating to both emotional wellbeing and goal progress
+5. Motivational closing that ties mood and goals together (optional)
 
-IMPORTANT: Keep each paragraph SHORT (2-3 sentences max). Total response should be under 400 words. Be supportive, hopeful, and actionable. Avoid clinical language or diagnosing."""
+IMPORTANT: 
+- Connect mood patterns with personal goals when possible (e.g., "Your fitness goal progress seems to align with your happier days")
+- Keep each paragraph SHORT (2-3 sentences max)
+- Total response under 400 words
+- Be supportive, hopeful, and actionable
+- Avoid clinical language or diagnosing
+- Use the current date context to provide timely advice"""
 
                 val prompt = """$systemPrompt
 
@@ -125,54 +131,100 @@ Mood fluctuations are completely normal. Your commitment to tracking emotions sh
     }
 
     private fun analyzeMoodHistory(history: List<MoodEntry>): String {
-        val recentEntries = history.takeLast(30) // Last 30 entries
-        val moodCounts = recentEntries.groupingBy { it.mood }.eachCount()
+        val recentEntries = history.takeLast(20) // Last 20 entries for better context
         val totalEntries = recentEntries.size
-
-        val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
-        val startDate = if (recentEntries.isNotEmpty()) dateFormat.format(Date(recentEntries.first().timestamp)) else "N/A"
-        val endDate = if (recentEntries.isNotEmpty()) dateFormat.format(Date(recentEntries.last().timestamp)) else "N/A"
-
-        // Calculate trends by grouping by days
+        
+        // Get personal goals data
+        val goalsStorage = PersonalGoalsStorage.getInstance(context)
+        val allGoals = goalsStorage.getAllGoals()
+        val activeGoals = allGoals.filter { !it.isCompleted }
+        
+        // Current date context
+        val todayFormat = SimpleDateFormat("EEEE, MMM dd, yyyy", Locale.getDefault())
+        val today = todayFormat.format(Date())
+        
+        val dateFormat = SimpleDateFormat("MMM dd", Locale.getDefault())
         val dayFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        
+        // Group entries by date and get chronological mood journey
         val groupedByDate = recentEntries.groupBy { entry ->
             dayFormat.format(Date(entry.timestamp))
         }.toSortedMap()
         
+        // Build chronological mood journey (last 10 days)
+        val moodJourney = groupedByDate.entries.toList().takeLast(10).joinToString("\n") { (date, entriesForDay) ->
+            val latestEntry = entriesForDay.maxByOrNull { entry -> entry.timestamp }!!
+            val formattedDate = dateFormat.format(Date(latestEntry.timestamp))
+            val moodEmoji = getMoodEmoji(latestEntry.mood)
+            val note = if (latestEntry.note.isNotBlank()) " - \"${latestEntry.note}\"" else ""
+            "$formattedDate: ${latestEntry.mood.replaceFirstChar { char -> char.uppercase() }} $moodEmoji$note"
+        }
+        
+        // Calculate trends
         val recentDays = groupedByDate.entries.toList().takeLast(7)
         val previousDays = groupedByDate.entries.toList().dropLast(7).takeLast(7)
-
-        val recentPositive = recentDays.count { (date, entriesForDay) ->
+        
+        val recentPositive = recentDays.count { (_, entriesForDay) ->
             val latestMoodForDay = entriesForDay.maxByOrNull { entry -> entry.timestamp }?.mood
             latestMoodForDay in listOf("ecstatic", "happy", "confident", "calm")
         }
-        val previousPositive = previousDays.count { (date, entriesForDay) ->
+        val previousPositive = previousDays.count { (_, entriesForDay) ->
             val latestMoodForDay = entriesForDay.maxByOrNull { entry -> entry.timestamp }?.mood
             latestMoodForDay in listOf("ecstatic", "happy", "confident", "calm")
         }
-
-        // Common notes/themes
-        val allNotes = recentEntries.mapNotNull { entry ->
-            if (entry.note.isNotBlank()) entry.note else null
+        
+        // Goals context with progress and timing
+        val goalsContext = if (activeGoals.isNotEmpty()) {
+            activeGoals.joinToString("\n") { goal ->
+                val progressPercent = (goal.progress * 100).toInt()
+                val daysLeft = ((goal.targetDate - System.currentTimeMillis()) / (1000 * 60 * 60 * 24)).toInt()
+                val daysLeftText = when {
+                    daysLeft < 0 -> "overdue by ${-daysLeft} days"
+                    daysLeft == 0 -> "due today"
+                    daysLeft == 1 -> "due tomorrow"
+                    else -> "$daysLeft days remaining"
+                }
+                val notes = if (goal.notes.isNotBlank()) " - ${goal.notes}" else ""
+                "- ${goal.title} (${goal.category.displayName}) - $progressPercent% complete, $daysLeftText$notes"
+            }
+        } else {
+            "No active personal goals set"
         }
-
+        
+        // Quick stats
+        val moodCounts = recentEntries.groupingBy { it.mood }.eachCount()
+        val dominantMood = moodCounts.maxByOrNull { it.value }?.key?.replaceFirstChar { it.uppercase() } ?: "N/A"
+        
         return """
-        **Mood Tracking Summary:**
-        - Total entries: $totalEntries (from $startDate to $endDate)
-        - Most common mood: ${moodCounts.maxByOrNull { it.value }?.key?.replaceFirstChar { it.uppercase() } ?: "N/A"}
-        
-        **Mood Distribution:**
-        ${moodCounts.entries.joinToString("\n") { "- ${it.key.replaceFirstChar { char -> char.uppercase() }}: ${it.value} times (${(it.value * 100 / totalEntries)}%)" }}
-        
-        **Recent Trends:**
-        - Positive mood days this week: $recentPositive/${recentDays.size}
-        - Positive mood days previous week: $previousPositive/${previousDays.size}
-        - Trend: ${if (recentPositive >= previousPositive) "Stable or improving" else "Some challenges lately"}
-        - Unique tracking days: ${groupedByDate.size}
-        
-        **User Notes & Themes:**
-        ${if (allNotes.isNotEmpty()) allNotes.takeLast(5).joinToString("\n") { "- \"$it\"" } else "No detailed notes provided"}
+**Today's Date:** $today
+
+**Recent Mood Journey:** (Last ${groupedByDate.size} days)
+$moodJourney
+
+**Personal Goals Context:**
+$goalsContext
+
+**Quick Pattern Analysis:**
+- Total mood entries: $totalEntries
+- Most frequent mood: $dominantMood
+- Positive mood days this week: $recentPositive/${recentDays.size}
+- Previous week comparison: $previousPositive/${previousDays.size}
+- Trend: ${if (recentPositive >= previousPositive) "Stable or improving" else "Facing some challenges lately"}
         """.trimIndent()
+    }
+    
+    private fun getMoodEmoji(mood: String): String {
+        return when (mood) {
+            "happy" -> "😊"
+            "calm" -> "😌"
+            "ecstatic" -> "🤩"
+            "confident" -> "😎"
+            "sad" -> "😔"
+            "anxious" -> "😰"
+            "tired" -> "😴"
+            "stressed" -> "😫"
+            else -> "😐"
+        }
     }
     
     fun generateMeditationParams(): Triple<String, String, String> {

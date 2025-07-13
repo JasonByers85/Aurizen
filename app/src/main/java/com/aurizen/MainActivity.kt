@@ -27,6 +27,7 @@ const val DREAM_INTERPRETER_SCREEN = "dream_interpreter_screen"
 const val PERSONAL_GOALS_SCREEN = "personal_goals_screen"
 const val TTS_SETTINGS_SCREEN = "tts_settings_screen"
 const val SETTINGS_SCREEN = "settings_screen"
+const val TALK_SCREEN = "talk_screen"
 
 class MainActivity : ComponentActivity() {
 
@@ -95,19 +96,32 @@ class MainActivity : ComponentActivity() {
                                     },
                                     onNavigateToSettings = {
                                         navController.navigate(SETTINGS_SCREEN)
+                                    },
+                                    onNavigateToTalk = {
+                                        navController.navigate(TALK_SCREEN)
                                     }
                                 )
                             }
 
                             composable(QUICK_CHAT_SCREEN) {
                                 QuickChatRoute(
-                                    onBack = { navController.popBackStack() }
+                                    onBack = { 
+                                        navController.navigate(HOME_SCREEN) {
+                                            popUpTo(HOME_SCREEN) { inclusive = false }
+                                            launchSingleTop = true
+                                        }
+                                    }
                                 )
                             }
 
                             composable(MEDITATION_SCREEN) {
                                 MeditationRoute(
-                                    onBack = { navController.popBackStack() },
+                                    onBack = { 
+                                        navController.navigate(HOME_SCREEN) {
+                                            popUpTo(HOME_SCREEN) { inclusive = false }
+                                            launchSingleTop = true
+                                        }
+                                    },
                                     onStartSession = { meditationType ->
                                         navController.navigate("$MEDITATION_SESSION_SCREEN/$meditationType")
                                     }
@@ -120,10 +134,16 @@ class MainActivity : ComponentActivity() {
                                 // Use unified meditation session screen for all meditation types
                                 UnifiedMeditationSessionRoute(
                                     meditationType = meditationType,
-                                    onBack = { navController.popBackStack() },
+                                    onBack = { 
+                                        navController.navigate(HOME_SCREEN) {
+                                            popUpTo(HOME_SCREEN) { inclusive = false }
+                                            launchSingleTop = true
+                                        }
+                                    },
                                     onComplete = {
-                                        navController.navigate(MEDITATION_SCREEN) {
-                                            popUpTo(MEDITATION_SESSION_SCREEN) { inclusive = true }
+                                        navController.navigate(HOME_SCREEN) {
+                                            popUpTo(HOME_SCREEN) { inclusive = false }
+                                            launchSingleTop = true
                                         }
                                     }
                                 )
@@ -131,13 +151,23 @@ class MainActivity : ComponentActivity() {
 
                             composable(BREATHING_SCREEN) {
                                 BreathingRoute(
-                                    onBack = { navController.popBackStack() }
+                                    onBack = { 
+                                        navController.navigate(HOME_SCREEN) {
+                                            popUpTo(HOME_SCREEN) { inclusive = false }
+                                            launchSingleTop = true
+                                        }
+                                    }
                                 )
                             }
 
                             composable(MOOD_TRACKER_SCREEN) {
                                 MoodTrackerRoute(
-                                    onBack = { navController.popBackStack() },
+                                    onBack = { 
+                                        navController.navigate(HOME_SCREEN) {
+                                            popUpTo(HOME_SCREEN) { inclusive = false }
+                                            launchSingleTop = true
+                                        }
+                                    },
                                     onNavigateToCustomMeditation = { focus, mood, moodContext ->
                                         // Create custom meditation type with mood context
                                         // Encode the mood context safely for URL
@@ -150,25 +180,56 @@ class MainActivity : ComponentActivity() {
 
                             composable(DREAM_INTERPRETER_SCREEN) {
                                 DreamInterpreterRoute(
-                                    onBack = { navController.popBackStack() }
+                                    onBack = { 
+                                        navController.navigate(HOME_SCREEN) {
+                                            popUpTo(HOME_SCREEN) { inclusive = false }
+                                            launchSingleTop = true
+                                        }
+                                    }
                                 )
                             }
 
                             composable(PERSONAL_GOALS_SCREEN) {
                                 PersonalGoalsRoute(
-                                    onBack = { navController.popBackStack() }
+                                    onBack = { 
+                                        navController.navigate(HOME_SCREEN) {
+                                            popUpTo(HOME_SCREEN) { inclusive = false }
+                                            launchSingleTop = true
+                                        }
+                                    }
                                 )
                             }
 
                             composable(TTS_SETTINGS_SCREEN) {
                                 TTSSettingsRoute(
-                                    onBack = { navController.popBackStack() }
+                                    onBack = { 
+                                        navController.navigate(HOME_SCREEN) {
+                                            popUpTo(HOME_SCREEN) { inclusive = false }
+                                            launchSingleTop = true
+                                        }
+                                    }
                                 )
                             }
 
                             composable(SETTINGS_SCREEN) {
                                 SettingsRoute(
-                                    onBack = { navController.popBackStack() }
+                                    onBack = { 
+                                        navController.navigate(HOME_SCREEN) {
+                                            popUpTo(HOME_SCREEN) { inclusive = false }
+                                            launchSingleTop = true
+                                        }
+                                    }
+                                )
+                            }
+
+                            composable(TALK_SCREEN) {
+                                TalkRoute(
+                                    onBack = { 
+                                        navController.navigate(HOME_SCREEN) {
+                                            popUpTo(HOME_SCREEN) { inclusive = false }
+                                            launchSingleTop = true
+                                        }
+                                    }
                                 )
                             }
                     }

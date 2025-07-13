@@ -7,6 +7,7 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.Voice
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -17,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.aurizen.ui.theme.AuriZenGradientBackground
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -31,80 +33,147 @@ internal fun TTSSettingsRoute(onBack: () -> Unit) {
 
 @Composable
 fun TTSSettingsScreen(onBack: () -> Unit, context: Context) {
-    val meditationSettings = remember { MeditationSettings.getInstance(context) }
-    val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
+    var currentTab by remember { mutableStateOf(0) }
 
+    // Create a mock audio manager for the voice settings tab
+    val mockAudioManager = object {
+        fun setVolume(volume: Float) {}
+        fun getMeditationAudioManager() = object {
+            fun setVolume(volume: Float) {}
+            fun stopBackgroundSound() {}
+            fun playBackgroundSound(sound: Any) {}
+            fun setBinauralVolume(volume: Float) {}
+            fun stopBinauralTone() {}
+            fun playBinauralTone(tone: Any) {}
+        }
+        fun setBackgroundSound(sound: Any) {}
+        fun setBinauralTone(tone: Any) {}
+    }
+
+    AuriZenGradientBackground {
+        Column(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            // Header with tabs
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                ),
+                shape = RoundedCornerShape(topStart = 0.dp, topEnd = 0.dp, bottomStart = 16.dp, bottomEnd = 16.dp)
+            ) {
+                Column {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Default.ArrowBack, contentDescription = "Back")
+                        }
+                        Text(
+                            text = "Meditation Voice Settings",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                        // Empty space for balance
+                        Spacer(modifier = Modifier.width(48.dp))
+                    }
+
+                    TabRow(
+                        selectedTabIndex = currentTab,
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    ) {
+                        Tab(
+                            selected = currentTab == 0,
+                            onClick = { currentTab = 0 },
+                            text = { Text("Audio Mix") }
+                        )
+                        Tab(
+                            selected = currentTab == 1,
+                            onClick = { currentTab = 1 },
+                            text = { Text("Voice") }
+                        )
+                    }
+                }
+            }
+
+            // Tab content
+            when (currentTab) {
+                0 -> MeditationAudioMixerTab(context, mockAudioManager)
+                1 -> MeditationVoiceSettingsTab(context)
+            }
+        }
+    }
+}
+
+@Composable
+private fun MeditationAudioMixerTab(
+    context: Context,
+    audioManager: Any // Placeholder for audio manager
+) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        item {
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
+                )
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "🧘 Meditation Audio Mix",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Audio mixing for meditation sessions is handled during the session. Use the Voice tab to configure voice settings.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MeditationVoiceSettingsTab(
+    context: Context
+) {
+    val meditationSettings = remember { MeditationSettings.getInstance(context) }
+    
     var ttsEnabled by remember { mutableStateOf(meditationSettings.isTtsEnabled()) }
     var ttsSpeed by remember { mutableStateOf(meditationSettings.getTtsSpeed()) }
     var ttsPitch by remember { mutableStateOf(meditationSettings.getTtsPitch()) }
     var ttsVolume by remember { mutableStateOf(meditationSettings.getTtsVolume()) }
     var selectedVoice by remember { mutableStateOf(meditationSettings.getTtsVoice()) }
+    var selectedGender by remember { mutableStateOf(meditationSettings.getTtsGender()) }
     var availableVoices by remember { mutableStateOf<List<Voice>>(emptyList()) }
-    var isTestPlaying by remember { mutableStateOf(false) }
-    var currentTestType by remember { mutableStateOf("") } // Track what type of test is playing
-
-    // TTS for testing
     var testTts by remember { mutableStateOf<TextToSpeech?>(null) }
-
-    // Function to stop any playing TTS
-    fun stopTTS() {
-        testTts?.stop()
-        isTestPlaying = false
-        currentTestType = ""
-    }
-
-    // Function to play test with current settings
-    fun playTestWithCurrentSettings(text: String, testType: String) {
-        stopTTS() // Stop any current playback
-
-        isTestPlaying = true
-        currentTestType = testType
-
-        testTts?.let { tts ->
-            tts.setSpeechRate(ttsSpeed)
-            tts.setPitch(ttsPitch)
-            
-            // Apply TTS volume via Bundle parameters instead of system volume
-            val params = Bundle().apply {
-                putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, ttsVolume)
-            }
-
-            // Apply selected voice
-            if (selectedVoice.isNotEmpty()) {
-                availableVoices.find { it.name == selectedVoice }?.let { voice ->
-                    tts.voice = voice
-                }
-            }
-
-            tts.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
-                override fun onStart(utteranceId: String?) {}
-                override fun onDone(utteranceId: String?) {
-                    isTestPlaying = false
-                    currentTestType = ""
-                }
-                override fun onError(utteranceId: String?) {
-                    isTestPlaying = false
-                    currentTestType = ""
-                }
-            })
-
-            tts.speak(text, TextToSpeech.QUEUE_FLUSH, params, testType)
-        }
-    }
 
     // Initialize TTS and get available voices
     LaunchedEffect(Unit) {
         testTts = TextToSpeech(context) { status ->
             if (status == TextToSpeech.SUCCESS) {
                 testTts?.let { tts ->
-                    // Get available voices
                     val voices = tts.voices?.filter { voice ->
-                        voice.locale.language == Locale.getDefault().language ||
-                                voice.locale.language == "en"
-                    }?.sortedBy { it.name } ?: emptyList()
-
+                        (voice.locale.language == Locale.getDefault().language ||
+                                voice.locale.language == "en") &&
+                        !voice.isNetworkConnectionRequired &&
+                        voice.features?.contains(TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED) != true
+                    }?.sortedWith(compareBy(
+                        { getVoiceGenderFromName(it.name) }, // Sort by gender
+                        { it.locale.displayName },
+                        { it.name }
+                    )) ?: emptyList()
                     availableVoices = voices
-
+                    
                     // Set saved voice if available
                     if (selectedVoice.isNotEmpty()) {
                         voices.find { it.name == selectedVoice }?.let { voice ->
@@ -118,7 +187,7 @@ fun TTSSettingsScreen(onBack: () -> Unit, context: Context) {
 
     DisposableEffect(Unit) {
         onDispose {
-            stopTTS()
+            testTts?.stop()
             testTts?.shutdown()
         }
     }
@@ -130,50 +199,8 @@ fun TTSSettingsScreen(onBack: () -> Unit, context: Context) {
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
-            // Top bar
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Default.ArrowBack, contentDescription = "Back")
-                }
-                Text(
-                    text = "Voice Settings",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(start = 8.dp)
-                )
-            }
-        }
-
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
-                )
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "🎙️ Voice Guidance Settings",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Customize the voice that guides you through meditation sessions.",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
-            }
-        }
-
-        item {
-            // Enable/Disable TTS
-            Card(
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            // TTS Enable/Disable
+            Card {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -199,23 +226,20 @@ fun TTSSettingsScreen(onBack: () -> Unit, context: Context) {
                             ttsEnabled = it
                             meditationSettings.setTtsEnabled(it)
                             if (!it) {
-                                stopTTS() // Stop any playing audio when disabled
+                                testTts?.stop()
                             }
                         }
                     )
                 }
             }
         }
-
+        
         if (ttsEnabled) {
             item {
-                // Speech Speed
-                Card(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp)
-                    ) {
+                // Speech controls
+                Card {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        // Speech Rate
                         Text(
                             text = "Speech Speed",
                             style = MaterialTheme.typography.titleSmall,
@@ -233,33 +257,14 @@ fun TTSSettingsScreen(onBack: () -> Unit, context: Context) {
                             onValueChange = {
                                 ttsSpeed = it
                                 meditationSettings.setTtsSpeed(it)
-                                // Apply immediately if test is playing
-                                if (isTestPlaying) {
-                                    testTts?.setSpeechRate(it)
-                                }
+                                testTts?.setSpeechRate(it)
                             },
-                            valueRange = 0.5f..1.5f,
-                            steps = 10
+                            valueRange = 0.5f..1.5f
                         )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("Slower", style = MaterialTheme.typography.labelSmall)
-                            Text("Faster", style = MaterialTheme.typography.labelSmall)
-                        }
-                    }
-                }
-            }
-
-            item {
-                // Voice Pitch
-                Card(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp)
-                    ) {
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        // Pitch
                         Text(
                             text = "Voice Pitch",
                             style = MaterialTheme.typography.titleSmall,
@@ -277,33 +282,14 @@ fun TTSSettingsScreen(onBack: () -> Unit, context: Context) {
                             onValueChange = {
                                 ttsPitch = it
                                 meditationSettings.setTtsPitch(it)
-                                // Apply immediately if test is playing
-                                if (isTestPlaying) {
-                                    testTts?.setPitch(it)
-                                }
+                                testTts?.setPitch(it)
                             },
-                            valueRange = 0.6f..1.4f,
-                            steps = 8
+                            valueRange = 0.6f..1.4f
                         )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("Lower", style = MaterialTheme.typography.labelSmall)
-                            Text("Higher", style = MaterialTheme.typography.labelSmall)
-                        }
-                    }
-                }
-            }
-
-            item {
-                // Voice Volume
-                Card(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp)
-                    ) {
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        // Volume
                         Text(
                             text = "Voice Volume",
                             style = MaterialTheme.typography.titleSmall,
@@ -321,55 +307,132 @@ fun TTSSettingsScreen(onBack: () -> Unit, context: Context) {
                             onValueChange = {
                                 ttsVolume = it
                                 meditationSettings.setTtsVolume(it)
-                                // Restart test TTS if currently playing to apply new volume immediately
-                                if (isTestPlaying && currentTestType.isNotEmpty()) {
-                                    playTestWithCurrentSettings(
-                                        "Testing voice volume at ${(ttsVolume * 100).toInt()}%",
-                                        currentTestType
+                            },
+                            valueRange = 0.0f..1.0f
+                        )
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        // Test button
+                        Button(
+                            onClick = {
+                                testTts?.let { tts ->
+                                    tts.setSpeechRate(ttsSpeed)
+                                    tts.setPitch(ttsPitch)
+                                    
+                                    if (selectedVoice.isNotEmpty()) {
+                                        availableVoices.find { it.name == selectedVoice }?.let { voice ->
+                                            tts.voice = voice
+                                        }
+                                    }
+                                    
+                                    val params = Bundle().apply {
+                                        putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, ttsVolume)
+                                    }
+                                    tts.speak(
+                                        "Welcome to your meditation session. Take a deep breath and relax.",
+                                        TextToSpeech.QUEUE_FLUSH,
+                                        params,
+                                        "meditation_test"
                                     )
                                 }
                             },
-                            valueRange = 0.0f..1.0f,
-                            steps = 10
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Quiet", style = MaterialTheme.typography.labelSmall)
-                            Text("Loud", style = MaterialTheme.typography.labelSmall)
+                            Icon(Icons.Default.PlayArrow, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Test Voice Settings")
                         }
                     }
                 }
             }
-
+            
             item {
-                // Voice Selection
-                if (availableVoices.isNotEmpty()) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp)
-                        ) {
+                // Gender Preference
+                Card {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "Voice Gender Preference",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        val genderOptions = listOf("Any", "Male", "Female")
+                        genderOptions.forEach { gender ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = selectedGender == gender,
+                                    onClick = {
+                                        selectedGender = gender
+                                        meditationSettings.setTtsGender(gender)
+                                        
+                                        // Auto-apply gender preference to voice selection
+                                        if (gender != "Any") {
+                                            val filteredVoices = availableVoices.filter { voice ->
+                                                when (gender) {
+                                                    "Male" -> getVoiceGenderFromName(voice.name) == "male"
+                                                    "Female" -> getVoiceGenderFromName(voice.name) == "female"
+                                                    else -> true
+                                                }
+                                            }
+                                            filteredVoices.firstOrNull()?.let { voice ->
+                                                selectedVoice = voice.name
+                                                meditationSettings.setTtsVoice(voice.name)
+                                                testTts?.voice = voice
+                                            }
+                                        }
+                                    }
+                                )
+                                Text(
+                                    text = gender,
+                                    modifier = Modifier.padding(start = 8.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            
+            if (availableVoices.isNotEmpty()) {
+                item {
+                    Card {
+                        Column(modifier = Modifier.padding(16.dp)) {
                             Text(
                                 text = "Voice Selection",
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.SemiBold
                             )
+                            
                             Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "Choose your preferred voice",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            availableVoices.take(6).forEach { voice ->
+                            
+                            // Group voices by gender
+                            val femaleVoices = availableVoices.filter { voice ->
+                                getVoiceGenderFromName(voice.name) == "female"
+                            }
+                            val maleVoices = availableVoices.filter { voice ->
+                                getVoiceGenderFromName(voice.name) == "male"
+                            }
+                            val unknownVoices = availableVoices.filter { voice ->
+                                getVoiceGenderFromName(voice.name) == "unknown"
+                            }
+                            
+                            // Show female voices
+                            if (femaleVoices.isNotEmpty()) {
+                                Text(
+                                    text = "Female Voices",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(vertical = 4.dp)
+                                )
+                            }
+                            femaleVoices.forEach { voice ->
                                 Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 4.dp),
+                                    modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     RadioButton(
@@ -377,145 +440,67 @@ fun TTSSettingsScreen(onBack: () -> Unit, context: Context) {
                                         onClick = {
                                             selectedVoice = voice.name
                                             meditationSettings.setTtsVoice(voice.name)
-                                            // If test is playing, restart with new voice
-                                            if (isTestPlaying && currentTestType == "voice_test") {
-                                                playTestWithCurrentSettings(
-                                                    "Hello, this is a test of this meditation voice. Take a deep breath and relax.",
-                                                    "voice_test"
-                                                )
-                                            }
+                                            testTts?.voice = voice
                                         }
                                     )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = voice.name.replace("_", " ").replace("#", ""),
-                                            style = MaterialTheme.typography.bodyMedium
-                                        )
-                                        Text(
-                                            text = "${voice.locale.displayLanguage} - ${getVoiceQuality(voice)}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                                        )
-                                    }
-
-                                    // Test voice button
-                                    IconButton(
+                                    Text(voice.name.replace("_", " "))
+                                }
+                            }
+                            
+                            // Show male voices
+                            if (maleVoices.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "Male Voices",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(vertical = 4.dp)
+                                )
+                            }
+                            maleVoices.forEach { voice ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    RadioButton(
+                                        selected = selectedVoice == voice.name,
                                         onClick = {
-                                            if (isTestPlaying && currentTestType == "voice_test") {
-                                                stopTTS()
-                                            } else {
-                                                playTestWithCurrentSettings(
-                                                    "Hello, this is a test of this meditation voice. Take a deep breath and relax.",
-                                                    "voice_test"
-                                                )
-                                            }
+                                            selectedVoice = voice.name
+                                            meditationSettings.setTtsVoice(voice.name)
+                                            testTts?.voice = voice
                                         }
-                                    ) {
-                                        Icon(
-                                            if (isTestPlaying && currentTestType == "voice_test")
-                                                Icons.Default.Stop
-                                            else
-                                                Icons.Default.PlayArrow,
-                                            contentDescription = if (isTestPlaying && currentTestType == "voice_test") "Stop" else "Test Voice",
-                                            tint = if (isTestPlaying && currentTestType == "voice_test")
-                                                MaterialTheme.colorScheme.error
-                                            else
-                                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            item {
-                // Test Current Settings
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "Test Your Settings",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Listen to how your voice will sound during meditation",
-                            style = MaterialTheme.typography.bodySmall,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        Button(
-                            onClick = {
-                                if (isTestPlaying && currentTestType == "meditation_test") {
-                                    stopTTS()
-                                } else {
-                                    playTestWithCurrentSettings(
-                                        "Welcome to your meditation session. Find a comfortable position and close your eyes. Take a deep breath in, and slowly exhale. Let yourself relax completely.",
-                                        "meditation_test"
                                     )
+                                    Text(voice.name.replace("_", " "))
                                 }
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            if (isTestPlaying && currentTestType == "meditation_test") {
-                                Icon(Icons.Default.Stop, contentDescription = null)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Stop Test")
-                            } else {
-                                Icon(Icons.Default.PlayArrow, contentDescription = null)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Test Meditation Voice")
+                            }
+                            
+                            // Show unknown gender voices
+                            if (unknownVoices.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "Other Voices",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(vertical = 4.dp)
+                                )
+                            }
+                            unknownVoices.forEach { voice ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    RadioButton(
+                                        selected = selectedVoice == voice.name,
+                                        onClick = {
+                                            selectedVoice = voice.name
+                                            meditationSettings.setTtsVoice(voice.name)
+                                            testTts?.voice = voice
+                                        }
+                                    )
+                                    Text(voice.name.replace("_", " "))
+                                }
                             }
                         }
-                    }
-                }
-            }
-
-            item {
-                // Tips
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f)
-                    )
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.Default.Lightbulb,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Voice Tips",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "• Choose a slower speed (0.7-0.9x) for deeper relaxation\n" +
-                                    "• Lower pitch voices often feel more calming\n" +
-                                    "• Test different voices to find what resonates with you\n" +
-                                    "• You can adjust these settings anytime during meditation\n" +
-                                    "• Changes apply immediately while testing",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onTertiaryContainer
-                        )
                     }
                 }
             }
@@ -523,13 +508,43 @@ fun TTSSettingsScreen(onBack: () -> Unit, context: Context) {
     }
 }
 
-private fun getVoiceQuality(voice: Voice): String {
-    return when (voice.quality) {
-        Voice.QUALITY_VERY_HIGH -> "Very High Quality"
-        Voice.QUALITY_HIGH -> "High Quality"
-        Voice.QUALITY_NORMAL -> "Normal Quality"
-        Voice.QUALITY_LOW -> "Low Quality"
-        Voice.QUALITY_VERY_LOW -> "Very Low Quality"
-        else -> "Unknown Quality"
+private fun getVoiceGenderFromName(name: String): String {
+    val lowerName = name.lowercase()
+    return when {
+        // Common male indicators
+        lowerName.contains("male") && !lowerName.contains("female") -> "male"
+        lowerName.contains("man") && !lowerName.contains("woman") -> "male"
+        lowerName.contains("guy") -> "male"
+        lowerName.contains("boy") -> "male"
+        // Specific TTS engine male voices
+        lowerName.contains("_m_") -> "male"
+        lowerName.contains("-m-") -> "male"
+        lowerName.contains("#male") -> "male"
+        
+        // Common female indicators
+        lowerName.contains("female") -> "female"
+        lowerName.contains("woman") -> "female"
+        lowerName.contains("girl") -> "female"
+        lowerName.contains("lady") -> "female"
+        // Specific TTS engine female voices
+        lowerName.contains("_f_") -> "female"
+        lowerName.contains("-f-") -> "female"
+        lowerName.contains("#female") -> "female"
+        
+        // Default female for common voice names that are typically female
+        lowerName.contains("samantha") -> "female"
+        lowerName.contains("susan") -> "female"
+        lowerName.contains("karen") -> "female"
+        lowerName.contains("alice") -> "female"
+        lowerName.contains("victoria") -> "female"
+        
+        // Default male for common voice names that are typically male
+        lowerName.contains("james") -> "male"
+        lowerName.contains("robert") -> "male"
+        lowerName.contains("daniel") -> "male"
+        lowerName.contains("david") -> "male"
+        lowerName.contains("alex") && !lowerName.contains("alexa") -> "male"
+        
+        else -> "unknown"
     }
 }

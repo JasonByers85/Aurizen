@@ -16,6 +16,8 @@ class MeditationSettings private constructor(context: Context) {
         private const val KEY_TTS_ENABLED = "tts_enabled"
         private const val KEY_TTS_SPEED = "tts_speed"
         private const val KEY_TTS_PITCH = "tts_pitch"
+        private const val KEY_TTS_VOICE = "tts_voice"
+        private const val KEY_TTS_GENDER = "tts_gender"
         private const val KEY_VOLUME = "volume"
         private const val KEY_SESSIONS_COMPLETED = "sessions_completed"
         private const val KEY_TOTAL_MEDITATION_TIME = "total_meditation_time"
@@ -131,11 +133,19 @@ class MeditationSettings private constructor(context: Context) {
     }
 
     fun getTtsVoice(): String {
-        return prefs.getString("tts_voice", "") ?: ""
+        return prefs.getString(KEY_TTS_VOICE, "") ?: ""
     }
 
     fun setTtsVoice(voiceName: String) {
-        prefs.edit().putString("tts_voice", voiceName).apply()
+        prefs.edit().putString(KEY_TTS_VOICE, voiceName).apply()
+    }
+
+    fun getTtsGender(): String {
+        return prefs.getString(KEY_TTS_GENDER, "Any") ?: "Any"
+    }
+
+    fun setTtsGender(gender: String) {
+        prefs.edit().putString(KEY_TTS_GENDER, gender).apply()
     }
 
     // Session Tracking

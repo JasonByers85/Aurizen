@@ -430,6 +430,7 @@ private fun BreathingVoiceSettingsTab(
     var ttsPitch by remember { mutableStateOf(breathingSettings.getTtsPitch()) }
     var ttsVolume by remember { mutableStateOf(breathingSettings.getTtsVolume()) }
     var selectedVoice by remember { mutableStateOf(breathingSettings.getTtsVoice()) }
+    var selectedGender by remember { mutableStateOf(breathingSettings.getTtsGender()) }
     var availableVoices by remember { mutableStateOf<List<Voice>>(emptyList()) }
     var testTts by remember { mutableStateOf<TextToSpeech?>(null) }
 
@@ -438,9 +439,15 @@ private fun BreathingVoiceSettingsTab(
             if (status == TextToSpeech.SUCCESS) {
                 testTts?.let { tts ->
                     val voices = tts.voices?.filter { voice ->
-                        voice.locale.language == Locale.getDefault().language ||
-                                voice.locale.language == "en"
-                    }?.sortedBy { it.name } ?: emptyList()
+                        (voice.locale.language == Locale.getDefault().language ||
+                                voice.locale.language == "en") &&
+                        !voice.isNetworkConnectionRequired &&
+                        voice.features?.contains(TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED) != true
+                    }?.sortedWith(compareBy(
+                        { getVoiceGenderFromName(it.name) }, // Sort by gender
+                        { it.locale.displayName },
+                        { it.name }
+                    )) ?: emptyList()
                     availableVoices = voices
                 }
             }
@@ -534,6 +541,57 @@ private fun BreathingVoiceSettingsTab(
             }
         }
 
+        // Gender Preference
+        item {
+            Card {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Voice Gender Preference",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    val genderOptions = listOf("Any", "Male", "Female")
+                    genderOptions.forEach { gender ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = selectedGender == gender,
+                                onClick = {
+                                    selectedGender = gender
+                                    breathingSettings.setTtsGender(gender)
+                                    
+                                    // Auto-apply gender preference to voice selection
+                                    if (gender != "Any") {
+                                        val filteredVoices = availableVoices.filter { voice ->
+                                            when (gender) {
+                                                "Male" -> getVoiceGenderFromName(voice.name) == "male"
+                                                "Female" -> getVoiceGenderFromName(voice.name) == "female"
+                                                else -> true
+                                            }
+                                        }
+                                        filteredVoices.firstOrNull()?.let { voice ->
+                                            selectedVoice = voice.name
+                                            breathingSettings.setTtsVoice(voice.name)
+                                            testTts?.voice = voice
+                                        }
+                                    }
+                                }
+                            )
+                            Text(
+                                text = gender,
+                                modifier = Modifier.padding(start = 8.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         if (availableVoices.isNotEmpty()) {
             item {
                 Card {
@@ -543,8 +601,86 @@ private fun BreathingVoiceSettingsTab(
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold
                         )
-
-                        availableVoices.take(4).forEach { voice ->
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        // Group voices by gender
+                        val femaleVoices = availableVoices.filter { voice ->
+                            getVoiceGenderFromName(voice.name) == "female"
+                        }
+                        val maleVoices = availableVoices.filter { voice ->
+                            getVoiceGenderFromName(voice.name) == "male"
+                        }
+                        val unknownVoices = availableVoices.filter { voice ->
+                            getVoiceGenderFromName(voice.name) == "unknown"
+                        }
+                        
+                        // Show female voices
+                        if (femaleVoices.isNotEmpty()) {
+                            Text(
+                                text = "Female Voices",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            )
+                        }
+                        femaleVoices.forEach { voice ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = selectedVoice == voice.name,
+                                    onClick = {
+                                        selectedVoice = voice.name
+                                        breathingSettings.setTtsVoice(voice.name)
+                                        // Apply voice immediately to test TTS
+                                        testTts?.voice = voice
+                                    }
+                                )
+                                Text(voice.name.replace("_", " "))
+                            }
+                        }
+                        
+                        // Show male voices
+                        if (maleVoices.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Male Voices",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            )
+                        }
+                        maleVoices.forEach { voice ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = selectedVoice == voice.name,
+                                    onClick = {
+                                        selectedVoice = voice.name
+                                        breathingSettings.setTtsVoice(voice.name)
+                                        // Apply voice immediately to test TTS
+                                        testTts?.voice = voice
+                                    }
+                                )
+                                Text(voice.name.replace("_", " "))
+                            }
+                        }
+                        
+                        // Show unknown gender voices
+                        if (unknownVoices.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Other Voices",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            )
+                        }
+                        unknownVoices.forEach { voice ->
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically
@@ -645,5 +781,46 @@ private fun AudioChannelCard(
 
             extraContent?.invoke()
         }
+    }
+}
+
+private fun getVoiceGenderFromName(name: String): String {
+    val lowerName = name.lowercase()
+    return when {
+        // Common male indicators
+        lowerName.contains("male") && !lowerName.contains("female") -> "male"
+        lowerName.contains("man") && !lowerName.contains("woman") -> "male"
+        lowerName.contains("guy") -> "male"
+        lowerName.contains("boy") -> "male"
+        // Specific TTS engine male voices
+        lowerName.contains("_m_") -> "male"
+        lowerName.contains("-m-") -> "male"
+        lowerName.contains("#male") -> "male"
+        
+        // Common female indicators
+        lowerName.contains("female") -> "female"
+        lowerName.contains("woman") -> "female"
+        lowerName.contains("girl") -> "female"
+        lowerName.contains("lady") -> "female"
+        // Specific TTS engine female voices
+        lowerName.contains("_f_") -> "female"
+        lowerName.contains("-f-") -> "female"
+        lowerName.contains("#female") -> "female"
+        
+        // Default female for common voice names that are typically female
+        lowerName.contains("samantha") -> "female"
+        lowerName.contains("susan") -> "female"
+        lowerName.contains("karen") -> "female"
+        lowerName.contains("alice") -> "female"
+        lowerName.contains("victoria") -> "female"
+        
+        // Default male for common voice names that are typically male
+        lowerName.contains("james") -> "male"
+        lowerName.contains("robert") -> "male"
+        lowerName.contains("daniel") -> "male"
+        lowerName.contains("david") -> "male"
+        lowerName.contains("alex") && !lowerName.contains("alexa") -> "male"
+        
+        else -> "unknown"
     }
 }

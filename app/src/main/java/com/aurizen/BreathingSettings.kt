@@ -17,6 +17,7 @@ class BreathingSettings private constructor(context: Context) {
         private const val KEY_TTS_SPEED = "tts_speed"
         private const val KEY_TTS_PITCH = "tts_pitch"
         private const val KEY_TTS_VOICE = "tts_voice"
+        private const val KEY_TTS_GENDER = "tts_gender"
         private const val KEY_VOLUME = "volume"
         private const val KEY_BINAURAL_VOLUME = "binaural_volume"
         private const val KEY_TTS_VOLUME = "tts_volume"
@@ -132,6 +133,14 @@ class BreathingSettings private constructor(context: Context) {
 
     fun setTtsVoice(voiceName: String) {
         prefs.edit().putString(KEY_TTS_VOICE, voiceName).apply()
+    }
+
+    fun getTtsGender(): String {
+        return prefs.getString(KEY_TTS_GENDER, "Any") ?: "Any"
+    }
+
+    fun setTtsGender(gender: String) {
+        prefs.edit().putString(KEY_TTS_GENDER, gender).apply()
     }
 
     // Reset all settings

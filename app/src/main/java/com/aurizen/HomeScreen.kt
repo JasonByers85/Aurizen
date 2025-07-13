@@ -36,7 +36,8 @@ internal fun HomeRoute(
     onNavigateToMoodTracker: () -> Unit,
     onNavigateToDreamInterpreter: () -> Unit,
     onNavigateToPersonalGoals: () -> Unit,
-    onNavigateToSettings: () -> Unit
+    onNavigateToSettings: () -> Unit,
+    onNavigateToTalk: () -> Unit
 ) {
     val context = LocalContext.current
     val userProfile = remember { UserProfile.getInstance(context) }
@@ -49,7 +50,8 @@ internal fun HomeRoute(
         onNavigateToMoodTracker = onNavigateToMoodTracker,
         onNavigateToDreamInterpreter = onNavigateToDreamInterpreter,
         onNavigateToPersonalGoals = onNavigateToPersonalGoals,
-        onNavigateToSettings = onNavigateToSettings
+        onNavigateToSettings = onNavigateToSettings,
+        onNavigateToTalk = onNavigateToTalk
     )
 }
 
@@ -62,7 +64,8 @@ fun HomeScreen(
     onNavigateToMoodTracker: () -> Unit,
     onNavigateToDreamInterpreter: () -> Unit,
     onNavigateToPersonalGoals: () -> Unit,
-    onNavigateToSettings: () -> Unit
+    onNavigateToSettings: () -> Unit,
+    onNavigateToTalk: () -> Unit
 ) {
     AuriZenGradientBackground {
         Column(
@@ -93,7 +96,8 @@ fun HomeScreen(
                         onNavigateToQuickChat = onNavigateToQuickChat,
                         onNavigateToBreathing = onNavigateToBreathing,
                         onNavigateToDreamInterpreter = onNavigateToDreamInterpreter,
-                        onNavigateToPersonalGoals = onNavigateToPersonalGoals
+                        onNavigateToPersonalGoals = onNavigateToPersonalGoals,
+                        onNavigateToTalk = onNavigateToTalk
                     )
                 }
             }
@@ -126,7 +130,7 @@ private fun HeaderSection(onNavigateToSettings: () -> Unit) {
             modifier = Modifier.align(Alignment.CenterEnd)
         ) {
             Icon(
-                imageVector = Icons.Default.Settings,
+                imageVector = Icons.Default.Person,
                 contentDescription = "Settings",
                 tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                 modifier = Modifier.size(24.dp)
@@ -238,7 +242,8 @@ private fun MainFeaturesGrid(
     onNavigateToQuickChat: () -> Unit,
     onNavigateToBreathing: () -> Unit,
     onNavigateToDreamInterpreter: () -> Unit,
-    onNavigateToPersonalGoals: () -> Unit
+    onNavigateToPersonalGoals: () -> Unit,
+    onNavigateToTalk: () -> Unit
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -257,10 +262,10 @@ private fun MainFeaturesGrid(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             CompactFeatureCard(
-                title = "Mood Tracker",
-                description = "Track emotions",
-                icon = Icons.Default.Mood,
-                onClick = onNavigateToMoodTracker,
+                title = "Talk",
+                description = "Voice chat",
+                icon = Icons.Default.RecordVoiceOver,
+                onClick = onNavigateToTalk,
                 modifier = Modifier.weight(1f)
             )
             
@@ -274,11 +279,19 @@ private fun MainFeaturesGrid(
             )
         }
         
-        // Bottom row - supporting features
+        // Second row
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            CompactFeatureCard(
+                title = "Mood Tracker",
+                description = "Track emotions",
+                icon = Icons.Default.Mood,
+                onClick = onNavigateToMoodTracker,
+                modifier = Modifier.weight(1f)
+            )
+            
             CompactFeatureCard(
                 title = "Breathing",
                 description = "Calm exercises",
@@ -286,7 +299,13 @@ private fun MainFeaturesGrid(
                 onClick = onNavigateToBreathing,
                 modifier = Modifier.weight(1f)
             )
-            
+        }
+        
+        // Third row - supporting features
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
             CompactFeatureCard(
                 title = "Dream Insights",
                 description = "Understand dreams",
@@ -294,13 +313,7 @@ private fun MainFeaturesGrid(
                 onClick = onNavigateToDreamInterpreter,
                 modifier = Modifier.weight(1f)
             )
-        }
-        
-        // Goals row
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
+            
             CompactFeatureCard(
                 title = "Personal Goals",
                 description = "Track progress",
@@ -308,9 +321,6 @@ private fun MainFeaturesGrid(
                 onClick = onNavigateToPersonalGoals,
                 modifier = Modifier.weight(1f)
             )
-            
-            // Empty space for balance
-            Spacer(modifier = Modifier.weight(1f))
         }
     }
 }

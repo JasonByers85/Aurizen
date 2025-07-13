@@ -1506,8 +1506,11 @@ class UnifiedMeditationSessionViewModel(
             textToSpeech?.let { tts ->
                 val sentence = currentSentences[currentSentenceIndex]
                 
-                // Update current sentence for UI display
+                // Update current sentence for UI display (original text for reading)
                 _currentSentence.value = sentence
+                
+                // Clean sentence for TTS (remove special characters and emojis)
+                val cleanedSentence = cleanTextForTTS(sentence)
                 
                 // Apply current TTS settings before speaking
                 tts.setPitch(meditationSettings.getTtsPitch())
@@ -1526,13 +1529,49 @@ class UnifiedMeditationSessionViewModel(
                 }
                 
                 val utteranceId = "${ttsUtteranceId}_${currentSentenceIndex}"
-                tts.speak(sentence, TextToSpeech.QUEUE_FLUSH, params, utteranceId)
+                tts.speak(cleanedSentence, TextToSpeech.QUEUE_FLUSH, params, utteranceId)
                 
                 Log.d(TAG, "Speaking sentence ${currentSentenceIndex + 1}/${currentSentences.size}: ${sentence.take(30)}...")
             }
         }
     }
     
+    private fun cleanTextForTTS(text: String): String {
+        return text
+            // Remove markdown formatting
+            .replace("**", "")
+            .replace("*", "")
+            .replace("_", "")
+            .replace("#", "")
+            .replace("`", "")
+            // Remove special characters that TTS might pronounce awkwardly
+            .replace("•", "")
+            .replace("→", "")
+            .replace("←", "")
+            .replace("↑", "")
+            .replace("↓", "")
+            .replace("…", "...")
+            .replace("–", "-")
+            .replace("—", "-")
+            .replace(""", "\"")
+            .replace(""", "\"")
+            .replace("'", "'")
+            .replace("'", "'")
+            // Remove parentheses and brackets content that might be formatting
+            .replace(Regex("\\[.*?\\]"), "")
+            .replace(Regex("\\(.*?\\)"), "")
+            // Replace multiple spaces with single space
+            .replace(Regex("\\s+"), " ")
+            // Remove emojis with correct Unicode syntax for Kotlin
+            .replace(Regex("[\uD83D\uDE00-\uD83D\uDE4F]"), "") // Emoticons
+            .replace(Regex("[\uD83C\uDF00-\uD83D\uDDFF]"), "") // Misc Symbols and Pictographs
+            .replace(Regex("[\uD83D\uDE80-\uD83D\uDEFF]"), "") // Transport and Map
+            .replace(Regex("[\uD83C\uDDE0-\uD83C\uDDFF]"), "") // Flags
+            .replace(Regex("[\u2600-\u26FF]"), "") // Misc symbols
+            .replace(Regex("[\u2700-\u27BF]"), "") // Dingbats
+            .trim()
+    }
+
     private fun playNextSentence() {
         currentSentenceIndex++
         if (currentSentenceIndex < currentSentences.size && isPlayingSentences && !ttsIsPaused) {

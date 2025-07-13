@@ -100,11 +100,6 @@ fun UnifiedMeditationSettingsDialog(
                                 onClick = { currentTab = 1 },
                                 text = { Text("Voice") }
                             )
-                            Tab(
-                                selected = currentTab == 2,
-                                onClick = { currentTab = 2 },
-                                text = { Text("General") }
-                            )
                         }
                     }
                 }
@@ -129,7 +124,6 @@ fun UnifiedMeditationSettingsDialog(
                         onTtsVolumeChange = onTtsVolumeChange
                     )
                     1 -> VoiceSettingsTab(settings, context, onTtsSpeedChange, onTtsPitchChange, onTtsVolumeChange)
-                    2 -> GeneralSettingsTab(settings)
                 }
             }
         }
@@ -668,19 +662,24 @@ private fun VoiceSettingsTab(
     var ttsPitch by remember { mutableStateOf(settings.getTtsPitch()) }
     var ttsVolume by remember { mutableStateOf(settings.getTtsVolume()) }
     var selectedVoice by remember { mutableStateOf(settings.getTtsVoice()) }
+    var selectedGender by remember { mutableStateOf(settings.getTtsGender()) }
     var availableVoices by remember { mutableStateOf<List<Voice>>(emptyList()) }
     var testTts by remember { mutableStateOf<TextToSpeech?>(null) }
-    var audioManager by remember { mutableStateOf<MeditationAudioManager?>(null) }
 
     LaunchedEffect(Unit) {
-        audioManager = MeditationAudioManager(context)
         testTts = TextToSpeech(context) { status ->
             if (status == TextToSpeech.SUCCESS) {
                 testTts?.let { tts ->
                     val voices = tts.voices?.filter { voice ->
-                        voice.locale.language == Locale.getDefault().language ||
-                                voice.locale.language == "en"
-                    }?.sortedBy { it.name } ?: emptyList()
+                        (voice.locale.language == Locale.getDefault().language ||
+                                voice.locale.language == "en") &&
+                        !voice.isNetworkConnectionRequired &&
+                        voice.features?.contains(TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED) != true
+                    }?.sortedWith(compareBy(
+                        { getVoiceGenderFromName(it.name) }, // Sort by gender
+                        { it.locale.displayName },
+                        { it.name }
+                    )) ?: emptyList()
                     availableVoices = voices
                 }
             }
@@ -691,7 +690,6 @@ private fun VoiceSettingsTab(
         onDispose {
             testTts?.stop()
             testTts?.shutdown()
-            audioManager?.release()
         }
     }
 
@@ -710,7 +708,6 @@ private fun VoiceSettingsTab(
                         onValueChange = {
                             ttsSpeed = it
                             settings.setTtsSpeed(it)
-                            // Apply speed immediately to test TTS
                             testTts?.setSpeechRate(it)
                             onTtsSpeedChange?.invoke(it)
                         },
@@ -725,8 +722,6 @@ private fun VoiceSettingsTab(
                         onValueChange = {
                             ttsVolume = it
                             settings.setTtsVolume(it)
-                            // Store volume level for TTS usage
-                            audioManager?.setTtsVolume(it)
                             onTtsVolumeChange?.invoke(it)
                         },
                         valueRange = 0.0f..1.0f
@@ -751,23 +746,20 @@ private fun VoiceSettingsTab(
                     Button(
                         onClick = {
                             testTts?.let { tts ->
-                                // Apply all current settings for test
                                 tts.setPitch(ttsPitch)
                                 tts.setSpeechRate(ttsSpeed)
                                 
-                                // Apply selected voice if available
                                 if (selectedVoice.isNotEmpty()) {
                                     tts.voices?.find { it.name == selectedVoice }?.let { voice ->
                                         tts.voice = voice
                                     }
                                 }
                                 
-                                // Create bundle with volume parameter for TTS
                                 val params = Bundle().apply {
                                     putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, ttsVolume)
                                 }
                                 tts.speak(
-                                    "This is a test of your voice settings. Notice how the speed, pitch, and volume affect your meditation guidance.",
+                                    "This is a test of your meditation voice settings. Notice how the speed, pitch, and volume affect your meditation guidance.",
                                     TextToSpeech.QUEUE_FLUSH,
                                     params,
                                     "voice_test"
@@ -784,6 +776,57 @@ private fun VoiceSettingsTab(
             }
         }
 
+        // Gender Preference
+        item {
+            Card {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Voice Gender Preference",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    val genderOptions = listOf("Any", "Male", "Female")
+                    genderOptions.forEach { gender ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = selectedGender == gender,
+                                onClick = {
+                                    selectedGender = gender
+                                    settings.setTtsGender(gender)
+                                    
+                                    // Auto-apply gender preference to voice selection
+                                    if (gender != "Any") {
+                                        val filteredVoices = availableVoices.filter { voice ->
+                                            when (gender) {
+                                                "Male" -> getVoiceGenderFromName(voice.name) == "male"
+                                                "Female" -> getVoiceGenderFromName(voice.name) == "female"
+                                                else -> true
+                                            }
+                                        }
+                                        filteredVoices.firstOrNull()?.let { voice ->
+                                            selectedVoice = voice.name
+                                            settings.setTtsVoice(voice.name)
+                                            testTts?.voice = voice
+                                        }
+                                    }
+                                }
+                            )
+                            Text(
+                                text = gender,
+                                modifier = Modifier.padding(start = 8.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         if (availableVoices.isNotEmpty()) {
             item {
                 Card {
@@ -793,8 +836,30 @@ private fun VoiceSettingsTab(
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold
                         )
-
-                        availableVoices.take(4).forEach { voice ->
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        // Group voices by gender
+                        val femaleVoices = availableVoices.filter { voice ->
+                            getVoiceGenderFromName(voice.name) == "female"
+                        }
+                        val maleVoices = availableVoices.filter { voice ->
+                            getVoiceGenderFromName(voice.name) == "male"
+                        }
+                        val unknownVoices = availableVoices.filter { voice ->
+                            getVoiceGenderFromName(voice.name) == "unknown"
+                        }
+                        
+                        // Show female voices
+                        if (femaleVoices.isNotEmpty()) {
+                            Text(
+                                text = "Female Voices",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            )
+                        }
+                        femaleVoices.forEach { voice ->
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically
@@ -804,7 +869,60 @@ private fun VoiceSettingsTab(
                                     onClick = {
                                         selectedVoice = voice.name
                                         settings.setTtsVoice(voice.name)
-                                        // Apply voice immediately to test TTS
+                                        testTts?.voice = voice
+                                    }
+                                )
+                                Text(voice.name.replace("_", " "))
+                            }
+                        }
+                        
+                        // Show male voices
+                        if (maleVoices.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Male Voices",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            )
+                        }
+                        maleVoices.forEach { voice ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = selectedVoice == voice.name,
+                                    onClick = {
+                                        selectedVoice = voice.name
+                                        settings.setTtsVoice(voice.name)
+                                        testTts?.voice = voice
+                                    }
+                                )
+                                Text(voice.name.replace("_", " "))
+                            }
+                        }
+                        
+                        // Show unknown gender voices
+                        if (unknownVoices.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Other Voices",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            )
+                        }
+                        unknownVoices.forEach { voice ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = selectedVoice == voice.name,
+                                    onClick = {
+                                        selectedVoice = voice.name
+                                        settings.setTtsVoice(voice.name)
                                         testTts?.voice = voice
                                     }
                                 )
@@ -818,52 +936,43 @@ private fun VoiceSettingsTab(
     }
 }
 
-@Composable
-private fun GeneralSettingsTab(settings: MeditationSettings) {
-    var reminderEnabled by remember { mutableStateOf(settings.isReminderEnabled()) }
-
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        item {
-            Card {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Daily Reminders")
-                    Switch(
-                        checked = reminderEnabled,
-                        onCheckedChange = {
-                            reminderEnabled = it
-                            settings.setReminderEnabled(it)
-                        }
-                    )
-                }
-            }
-        }
-
-        item {
-            Card {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "About Meditation",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "All meditation sessions include voice guidance, optional background sounds, and binaural tones for enhanced relaxation.",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-            }
-        }
+private fun getVoiceGenderFromName(name: String): String {
+    val lowerName = name.lowercase()
+    return when {
+        // Common male indicators
+        lowerName.contains("male") && !lowerName.contains("female") -> "male"
+        lowerName.contains("man") && !lowerName.contains("woman") -> "male"
+        lowerName.contains("guy") -> "male"
+        lowerName.contains("boy") -> "male"
+        // Specific TTS engine male voices
+        lowerName.contains("_m_") -> "male"
+        lowerName.contains("-m-") -> "male"
+        lowerName.contains("#male") -> "male"
+        
+        // Common female indicators
+        lowerName.contains("female") -> "female"
+        lowerName.contains("woman") -> "female"
+        lowerName.contains("girl") -> "female"
+        lowerName.contains("lady") -> "female"
+        // Specific TTS engine female voices
+        lowerName.contains("_f_") -> "female"
+        lowerName.contains("-f-") -> "female"
+        lowerName.contains("#female") -> "female"
+        
+        // Default female for common voice names that are typically female
+        lowerName.contains("samantha") -> "female"
+        lowerName.contains("susan") -> "female"
+        lowerName.contains("karen") -> "female"
+        lowerName.contains("alice") -> "female"
+        lowerName.contains("victoria") -> "female"
+        
+        // Default male for common voice names that are typically male
+        lowerName.contains("james") -> "male"
+        lowerName.contains("robert") -> "male"
+        lowerName.contains("daniel") -> "male"
+        lowerName.contains("david") -> "male"
+        lowerName.contains("alex") && !lowerName.contains("alexa") -> "male"
+        
+        else -> "unknown"
     }
 }

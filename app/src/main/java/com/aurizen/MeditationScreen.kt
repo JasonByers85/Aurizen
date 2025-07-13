@@ -59,7 +59,6 @@ fun MeditationScreen(
 
     val meditationSettings = remember { MeditationSettings.getInstance(context) }
     val stats = remember { meditationSettings.getMeditationStatistics() }
-    var showSettings by remember { mutableStateOf(false) }
     var showCustomMeditationDialog by remember { mutableStateOf(false) }
     var showSavedMeditationsDialog by remember { mutableStateOf(false) }
 
@@ -123,16 +122,8 @@ fun MeditationScreen(
                     )
                 }
 
-                // Single unified settings button
-                IconButton(
-                    onClick = { showSettings = true }
-                ) {
-                    Icon(
-                        Icons.Default.Settings,
-                        contentDescription = "Settings",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
+                // Settings available during meditation session
+                Spacer(modifier = Modifier.width(48.dp))
             }
         }
 
@@ -338,7 +329,7 @@ fun MeditationScreen(
                             fontWeight = FontWeight.SemiBold
                         )
                         Text(
-                            text = "Customize voice, audio mix, and meditation settings",
+                            text = "Audio & voice settings available during meditation session",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f)
                         )
@@ -348,29 +339,6 @@ fun MeditationScreen(
         }
     }
 
-    // Unified Settings Dialog
-    if (showSettings) {
-        UnifiedMeditationSettingsDialog(
-            settings = meditationSettings,
-            context = context,
-            soundEnabled = soundEnabled,
-            onSoundToggle = ::onSoundToggle,
-            backgroundSound = backgroundSound,
-            onBackgroundSoundChange = ::onBackgroundSoundChange,
-            binauralEnabled = binauralEnabled,
-            onBinauralToggle = ::onBinauralToggle,
-            binauralTone = binauralTone,
-            onBinauralToneChange = ::onBinauralToneChange,
-            ttsEnabled = ttsEnabled,
-            onTtsToggle = ::onTtsToggle,
-            onBackgroundVolumeChange = { /* No-op for this screen */ },
-            onBinauralVolumeChange = { /* No-op for this screen */ },
-            onTtsVolumeChange = { /* No-op for this screen */ },
-            onTtsSpeedChange = { /* No-op for this screen */ },
-            onTtsPitchChange = { /* No-op for this screen */ },
-            onDismiss = { showSettings = false }
-        )
-    }
 
     if (showCustomMeditationDialog) {
         CustomMeditationDialog(

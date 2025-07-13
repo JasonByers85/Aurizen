@@ -28,6 +28,7 @@ class QuickChatViewModel(
     private val userProfile = UserProfile.getInstance(context)
     private val goalsStorage = PersonalGoalsStorage.getInstance(context)
     private val moodStorage = MoodStorage.getInstance(context)
+    private val memoryStorage = MemoryStorage.getInstance(context)
 
     private fun buildSystemPrompt(): String {
         // Get recent mood entries (last 5 days)
@@ -47,6 +48,15 @@ class QuickChatViewModel(
         } else {
             "Active goals: None set"
         }
+        
+        // Get user memories
+        val userMemories = memoryStorage.getAllMemories()
+        val memoriesContext = if (userMemories.isNotEmpty()) {
+            val memoriesSummary = userMemories.take(5).joinToString("; ") { it.memory }
+            "Personal context to remember: $memoriesSummary"
+        } else {
+            "Personal context: None stored"
+        }
 
         return """You are a supportive AI wellness companion. Provide helpful, concise advice for mental health, stress management, and general wellness.
 
@@ -63,8 +73,9 @@ Current user context:
 - Recent topics: ${userProfile.getRecentTopics().joinToString(", ")}
 - $moodContext
 - $goalsContext
+- $memoriesContext
 
-When relevant, connect your advice to their personal goals or recent mood patterns. Respond with practical wellness support:"""
+When relevant, connect your advice to their personal goals, mood patterns, and any personal context they've shared. Respond with practical wellness support:"""
     }
 
     fun sendMessage(userMessage: String) {

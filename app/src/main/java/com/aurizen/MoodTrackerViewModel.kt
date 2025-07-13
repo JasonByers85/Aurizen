@@ -29,6 +29,7 @@ class MoodTrackerViewModel(
 
     private val userProfile = UserProfile.getInstance(context)
     private val moodStorage = MoodStorage.getInstance(context)
+    private val memoryStorage = MemoryStorage.getInstance(context)
 
     fun loadMoodHistory() {
         viewModelScope.launch(Dispatchers.IO) {
@@ -91,7 +92,8 @@ Provide insights in EXACTLY 4-5 short paragraphs (2-3 sentences each). Focus on:
 5. Motivational closing that ties mood and goals together (optional)
 
 IMPORTANT: 
-- Connect mood patterns with personal goals when possible (e.g., "Your fitness goal progress seems to align with your happier days")
+- Connect mood patterns with personal goals and context when possible (e.g., "Your fitness goal progress seems to align with your happier days")
+- Reference personal context naturally when relevant to provide personalized insights
 - Keep each paragraph SHORT (2-3 sentences max)
 - Total response under 400 words
 - Be supportive, hopeful, and actionable
@@ -191,6 +193,16 @@ Mood fluctuations are completely normal. Your commitment to tracking emotions sh
             "No active personal goals set"
         }
         
+        // User memories context
+        val userMemories = memoryStorage.getAllMemories()
+        val memoriesContext = if (userMemories.isNotEmpty()) {
+            userMemories.take(5).joinToString("\n") { memory ->
+                "- ${memory.memory}"
+            }
+        } else {
+            "No personal context stored"
+        }
+        
         // Quick stats
         val moodCounts = recentEntries.groupingBy { it.mood }.eachCount()
         val dominantMood = moodCounts.maxByOrNull { it.value }?.key?.replaceFirstChar { it.uppercase() } ?: "N/A"
@@ -203,6 +215,9 @@ $moodJourney
 
 **Personal Goals Context:**
 $goalsContext
+
+**Personal Context to Remember:**
+$memoriesContext
 
 **Quick Pattern Analysis:**
 - Total mood entries: $totalEntries

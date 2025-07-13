@@ -95,6 +95,10 @@ class PersonalGoalsStorage private constructor(context: Context) {
         saveGoal(updatedGoal)
     }
 
+    fun clearAllGoals() {
+        sharedPreferences.edit().remove(GOALS_KEY).apply()
+    }
+
     companion object {
         private const val GOALS_KEY = "personal_goals"
         

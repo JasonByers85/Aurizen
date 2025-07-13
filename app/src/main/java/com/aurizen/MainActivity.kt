@@ -26,6 +26,7 @@ const val MOOD_TRACKER_SCREEN = "mood_tracker_screen"
 const val DREAM_INTERPRETER_SCREEN = "dream_interpreter_screen"
 const val PERSONAL_GOALS_SCREEN = "personal_goals_screen"
 const val TTS_SETTINGS_SCREEN = "tts_settings_screen"
+const val SETTINGS_SCREEN = "settings_screen"
 
 class MainActivity : ComponentActivity() {
 
@@ -91,6 +92,9 @@ class MainActivity : ComponentActivity() {
                                     },
                                     onNavigateToPersonalGoals = {
                                         navController.navigate(PERSONAL_GOALS_SCREEN)
+                                    },
+                                    onNavigateToSettings = {
+                                        navController.navigate(SETTINGS_SCREEN)
                                     }
                                 )
                             }
@@ -158,6 +162,12 @@ class MainActivity : ComponentActivity() {
 
                             composable(TTS_SETTINGS_SCREEN) {
                                 TTSSettingsRoute(
+                                    onBack = { navController.popBackStack() }
+                                )
+                            }
+
+                            composable(SETTINGS_SCREEN) {
+                                SettingsRoute(
                                     onBack = { navController.popBackStack() }
                                 )
                             }

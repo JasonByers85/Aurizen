@@ -35,7 +35,8 @@ internal fun HomeRoute(
     onNavigateToBreathing: () -> Unit,
     onNavigateToMoodTracker: () -> Unit,
     onNavigateToDreamInterpreter: () -> Unit,
-    onNavigateToPersonalGoals: () -> Unit
+    onNavigateToPersonalGoals: () -> Unit,
+    onNavigateToSettings: () -> Unit
 ) {
     val context = LocalContext.current
     val userProfile = remember { UserProfile.getInstance(context) }
@@ -47,7 +48,8 @@ internal fun HomeRoute(
         onNavigateToBreathing = onNavigateToBreathing,
         onNavigateToMoodTracker = onNavigateToMoodTracker,
         onNavigateToDreamInterpreter = onNavigateToDreamInterpreter,
-        onNavigateToPersonalGoals = onNavigateToPersonalGoals
+        onNavigateToPersonalGoals = onNavigateToPersonalGoals,
+        onNavigateToSettings = onNavigateToSettings
     )
 }
 
@@ -59,7 +61,8 @@ fun HomeScreen(
     onNavigateToBreathing: () -> Unit,
     onNavigateToMoodTracker: () -> Unit,
     onNavigateToDreamInterpreter: () -> Unit,
-    onNavigateToPersonalGoals: () -> Unit
+    onNavigateToPersonalGoals: () -> Unit,
+    onNavigateToSettings: () -> Unit
 ) {
     AuriZenGradientBackground {
         Column(
@@ -68,7 +71,7 @@ fun HomeScreen(
                 .padding(16.dp)
         ) {
             // Header with Logo
-            HeaderSection()
+            HeaderSection(onNavigateToSettings = onNavigateToSettings)
             
             Spacer(modifier = Modifier.height(12.dp))
             
@@ -103,18 +106,32 @@ fun HomeScreen(
 
 @SuppressLint("ResourceType")
 @Composable
-private fun HeaderSection() {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.Center
+private fun HeaderSection(onNavigateToSettings: () -> Unit) {
+    Box(
+        modifier = Modifier.fillMaxWidth()
     ) {
+        // Logo centered
         Image(
             painter = painterResource(id = R.drawable.aurizen_logo),
             contentDescription = "AuriZen Logo",
             modifier = Modifier
                 .height(64.dp)
                 .clip(RoundedCornerShape(12.dp))
+                .align(Alignment.Center)
         )
+        
+        // Settings button on right
+        IconButton(
+            onClick = onNavigateToSettings,
+            modifier = Modifier.align(Alignment.CenterEnd)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Settings,
+                contentDescription = "Settings",
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                modifier = Modifier.size(24.dp)
+            )
+        }
     }
 }
 

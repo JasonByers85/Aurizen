@@ -4,5 +4,10 @@ enum class ThemeMode(val displayName: String) {
     SYSTEM("System"),
     LIGHT("Light"),
     DARK("Dark"),
-    PASTEL("Pastel")
+    PASTEL("Pastel"),
+    NATURE("Nature"),
+    MINIMAL("Minimal"),
+    VIBRANT("Vibrant"),
+    OCEAN("Ocean"),
+    SUNSET("Sunset")
 }

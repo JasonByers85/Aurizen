@@ -254,7 +254,7 @@ fun LoadingIndicator() {
         )
         
         CircularProgressIndicator(
-            color = Color(0xFF64B5F6),
+            color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(bottom = 16.dp)
         )
         

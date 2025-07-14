@@ -18,7 +18,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import com.aurizen.ui.theme.AuriZenGradientBackground
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -138,21 +140,13 @@ fun UnifiedMeditationSessionScreen(
 ) {
     var showSettingsDialog by remember { mutableStateOf(false) }
 
-    // Use gradient background from custom screen
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFF1A1A2E),
-                        Color(0xFF16213E),
-                        Color(0xFF0F3460)
-                    )
-                )
-            )
-            .padding(16.dp)
-    ) {
+    // Use theme-aware gradient background
+    AuriZenGradientBackground {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
         // Top bar with complete audio controls (from normal screen)
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -163,7 +157,7 @@ fun UnifiedMeditationSessionScreen(
                 Icon(
                     Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back",
-                    tint = Color.White
+                    tint = getContrastTextColor()
                 )
             }
 
@@ -174,7 +168,7 @@ fun UnifiedMeditationSessionScreen(
                     Icon(
                         if (audioSettings.ttsEnabled) Icons.Default.RecordVoiceOver else Icons.Default.VoiceOverOff,
                         contentDescription = if (audioSettings.ttsEnabled) "Disable Voice" else "Enable Voice",
-                        tint = if (audioSettings.ttsEnabled) Color(0xFF64B5F6) else Color.Gray,
+                        tint = if (audioSettings.ttsEnabled) MaterialTheme.colorScheme.primary else getContrastTextColor().copy(alpha = 0.6f),
                         modifier = Modifier.size(28.dp)
                     )
                 }
@@ -184,7 +178,7 @@ fun UnifiedMeditationSessionScreen(
                     Icon(
                         if (audioSettings.soundEnabled) Icons.Default.MusicNote else Icons.Default.MusicOff,
                         contentDescription = if (audioSettings.soundEnabled) "Disable Background Sound" else "Enable Background Sound",
-                        tint = if (audioSettings.soundEnabled) Color(0xFF64B5F6) else Color.Gray,
+                        tint = if (audioSettings.soundEnabled) MaterialTheme.colorScheme.primary else getContrastTextColor().copy(alpha = 0.6f),
                         modifier = Modifier.size(28.dp)
                     )
                 }
@@ -194,7 +188,7 @@ fun UnifiedMeditationSessionScreen(
                     Icon(
                         Icons.Default.GraphicEq,
                         contentDescription = if (audioSettings.binauralEnabled) "Disable Binaural" else "Enable Binaural",
-                        tint = if (audioSettings.binauralEnabled) Color(0xFF64B5F6) else Color.Gray,
+                        tint = if (audioSettings.binauralEnabled) MaterialTheme.colorScheme.primary else getContrastTextColor().copy(alpha = 0.6f),
                         modifier = Modifier.size(28.dp)
                     )
                 }
@@ -205,7 +199,7 @@ fun UnifiedMeditationSessionScreen(
                         Icon(
                             Icons.Default.BookmarkAdd,
                             contentDescription = "Save Meditation",
-                            tint = Color(0xFF64B5F6),
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(28.dp)
                         )
                     }
@@ -216,7 +210,7 @@ fun UnifiedMeditationSessionScreen(
                     Icon(
                         Icons.Default.Settings,
                         contentDescription = "Settings",
-                        tint = Color.Gray,
+                        tint = getContrastTextColor().copy(alpha = 0.6f),
                         modifier = Modifier.size(28.dp)
                     )
                 }
@@ -233,14 +227,14 @@ fun UnifiedMeditationSessionScreen(
         ) {
             Text(
                 text = "Step ${progress.currentStepIndex + 1} of ${progress.totalSteps}",
-                color = Color(0xFF64B5F6),
+                color = getContrastTextColor(),
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium
             )
             
             Text(
                 text = formatTime(progress.totalTimeRemaining),
-                color = Color(0xFF64B5F6),
+                color = getContrastTextColor(),
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium
             )
@@ -252,8 +246,8 @@ fun UnifiedMeditationSessionScreen(
         LinearProgressIndicator(
             progress = { (progress.currentStepIndex + 1).toFloat() / progress.totalSteps.toFloat() },
             modifier = Modifier.fillMaxWidth(),
-            color = Color(0xFF64B5F6),
-            trackColor = Color.White.copy(alpha = 0.2f)
+            color = MaterialTheme.colorScheme.primary,
+            trackColor = getContrastTextColor().copy(alpha = 0.2f)
         )
 
         Spacer(modifier = Modifier.height(32.dp))
@@ -319,16 +313,17 @@ fun UnifiedMeditationSessionScreen(
         )
     }
 
-    // Save dialog
-    if (showSaveDialog) {
-        SaveMeditationDialog(
-            onDismiss = onSaveDialogDismiss,
-            onSaveExact = onSaveExact,
-            onSaveTemplate = onSaveTemplate,
-            isFullyGenerated = isFullyGenerated
-        )
-    }
-}
+        // Save dialog
+        if (showSaveDialog) {
+            SaveMeditationDialog(
+                onDismiss = onSaveDialogDismiss,
+                onSaveExact = onSaveExact,
+                onSaveTemplate = onSaveTemplate,
+                isFullyGenerated = isFullyGenerated
+            )
+        }
+    } // Close Column
+} // Close AuriZenGradientBackground
 
 @Composable
 private fun PreparationContent(
@@ -346,7 +341,7 @@ private fun PreparationContent(
             is MeditationGenerationStatus.Generating -> {
                 CircularProgressIndicator(
                     modifier = Modifier.size(80.dp),
-                    color = Color(0xFF64B5F6),
+                    color = getContrastTextColor(),
                     strokeWidth = 4.dp
                 )
                 
@@ -354,7 +349,7 @@ private fun PreparationContent(
                 
                 Text(
                     text = "Creating Your Meditation",
-                    color = Color.White,
+                    color = getContrastTextColor(),
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -375,7 +370,7 @@ private fun PreparationContent(
             is MeditationGenerationStatus.Error -> {
                 Text(
                     text = "Generation Error",
-                    color = Color.White,
+                    color = getContrastTextColor(),
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -398,7 +393,7 @@ private fun PreparationContent(
                         OutlinedButton(
                             onClick = onCancel,
                             colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = Color.White
+                                contentColor = getContrastTextColor()
                             )
                         ) {
                             Text("Cancel")
@@ -419,7 +414,7 @@ private fun PreparationContent(
             else -> {
                 Text(
                     text = "Preparing meditation...",
-                    color = Color.White,
+                    color = getContrastTextColor(),
                     fontSize = 18.sp
                 )
             }
@@ -440,7 +435,7 @@ private fun ReadyContent(
         currentStep?.let { step ->
             Text(
                 text = step.title,
-                color = Color.White,
+                color = getContrastTextColor(),
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center
@@ -460,7 +455,7 @@ private fun ReadyContent(
                     Icons.Default.PlayArrow,
                     contentDescription = "Start",
                     modifier = Modifier.size(32.dp),
-                    tint = Color.White
+                    tint = getContrastTextColor()
                 )
             }
         }
@@ -485,7 +480,7 @@ private fun ActiveSessionContent(
         currentStep?.let { step ->
             Text(
                 text = step.title,
-                color = Color.White,
+                color = getContrastTextColor(),
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center
@@ -517,7 +512,7 @@ private fun ActiveSessionContent(
             // Step timer
             Text(
                 text = formatTime(progress.timeRemainingInStep),
-                color = Color.White,
+                color = getContrastTextColor(),
                 fontSize = 32.sp,
                 fontWeight = FontWeight.Light
             )
@@ -543,7 +538,7 @@ private fun ActiveSessionContent(
                 ) {
                     Text(
                         text = if (currentSentence.isNotEmpty()) currentSentence else step.guidance,
-                        color = Color.White,
+                        color = getContrastTextColor(),
                         fontSize = 16.sp,
                         lineHeight = 24.sp,
                         textAlign = TextAlign.Start
@@ -555,8 +550,8 @@ private fun ActiveSessionContent(
                         LinearProgressIndicator(
                             progress = { generationStatus.content.currentProgress },
                             modifier = Modifier.fillMaxWidth(),
-                            color = Color(0xFF64B5F6),
-                            trackColor = Color.White.copy(alpha = 0.2f)
+                            color = getContrastTextColor(),
+                            trackColor = getContrastTextColor().copy(alpha = 0.2f)
                         )
                     }
                 }
@@ -572,7 +567,7 @@ private fun ActiveSessionContent(
                 OutlinedButton(
                     onClick = onStop,
                     colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = Color.White
+                        contentColor = getContrastTextColor()
                     ),
                     modifier = Modifier.height(48.dp)
                 ) {
@@ -682,6 +677,16 @@ private fun formatTime(seconds: Int): String {
     val minutes = seconds / 60
     val remainingSeconds = seconds % 60
     return "%02d:%02d".format(minutes, remainingSeconds)
+}
+
+@Composable
+private fun getContrastTextColor(): Color {
+    val backgroundColor = MaterialTheme.colorScheme.background
+    return if (backgroundColor.luminance() > 0.5f) {
+        Color.Black // Light background, use dark text
+    } else {
+        Color.White // Dark background, use light text
+    }
 }
 
 @Composable

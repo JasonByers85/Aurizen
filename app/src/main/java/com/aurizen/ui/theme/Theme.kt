@@ -16,6 +16,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
+// Import all the new color schemes
+// (Note: These are imported from ThemeColors.kt and PastelTheme.kt)
+
 // AuriZen Blue Gradient Theme Colors
 private val AuriZenDarkColorScheme = darkColorScheme(
     primary = Color(0xFF64B5F6),           // Light blue accent
@@ -72,11 +75,19 @@ private val AuriZenLightColorScheme = lightColorScheme(
 @Composable
 fun AuriZenTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
+    themeMode: ThemeMode = ThemeMode.SYSTEM,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        darkTheme -> AuriZenDarkColorScheme
-        else -> AuriZenLightColorScheme
+    val colorScheme = when (themeMode) {
+        ThemeMode.SYSTEM -> if (darkTheme) AuriZenDarkColorScheme else AuriZenLightColorScheme
+        ThemeMode.LIGHT -> AuriZenLightColorScheme
+        ThemeMode.DARK -> AuriZenDarkColorScheme
+        ThemeMode.PASTEL -> if (darkTheme) PastelDarkColorScheme else PastelLightColorScheme
+        ThemeMode.NATURE -> if (darkTheme) NatureDarkColorScheme else NatureLightColorScheme
+        ThemeMode.MINIMAL -> if (darkTheme) MinimalDarkColorScheme else MinimalLightColorScheme
+        ThemeMode.VIBRANT -> if (darkTheme) VibrantDarkColorScheme else VibrantLightColorScheme
+        ThemeMode.OCEAN -> if (darkTheme) OceanDarkColorScheme else OceanLightColorScheme
+        ThemeMode.SUNSET -> if (darkTheme) SunsetDarkColorScheme else SunsetLightColorScheme
     }
     
     val view = LocalView.current
@@ -84,15 +95,23 @@ fun AuriZenTheme(
         SideEffect {
             val window = (view.context as Activity).window
             
-            // Set status bar color with proper deprecation handling
+            // Set status bar color based on theme
             @Suppress("DEPRECATION")
-            window.statusBarColor = if (darkTheme) {
-                Color(0xFF1A1A2E).toArgb()
-            } else {
-                Color(0xFF0F3460).toArgb()
+            window.statusBarColor = colorScheme.surface.toArgb()
+            
+            val isLightTheme = when (themeMode) {
+                ThemeMode.DARK -> false
+                ThemeMode.LIGHT -> true
+                ThemeMode.PASTEL -> !darkTheme
+                ThemeMode.NATURE -> !darkTheme
+                ThemeMode.MINIMAL -> !darkTheme
+                ThemeMode.VIBRANT -> !darkTheme
+                ThemeMode.OCEAN -> !darkTheme
+                ThemeMode.SUNSET -> !darkTheme
+                else -> !darkTheme
             }
             
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = isLightTheme
         }
     }
 
@@ -107,7 +126,8 @@ fun AuriZenTheme(
 @Composable
 fun LLMInferenceTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
+    themeMode: ThemeMode = ThemeMode.SYSTEM,
     content: @Composable () -> Unit
 ) {
-    AuriZenTheme(darkTheme = darkTheme, content = content)
+    AuriZenTheme(darkTheme = darkTheme, themeMode = themeMode, content = content)
 }

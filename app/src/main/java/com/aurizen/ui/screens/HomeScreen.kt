@@ -1,6 +1,7 @@
 package com.aurizen.ui.screens
 
 import android.annotation.SuppressLint
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -11,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -29,6 +31,11 @@ import kotlinx.coroutines.delay
 import com.aurizen.ui.theme.AuriZenGradientBackground
 import com.aurizen.data.UserProfile
 import com.aurizen.R
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.runtime.saveable.rememberSaveable
+import java.text.SimpleDateFormat
+import java.util.*
+import android.content.Context
 
 @Composable
 internal fun HomeRoute(
@@ -85,9 +92,9 @@ fun HomeScreen(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Animated welcome card
+                // Welcome message
                 item {
-                    CompactAnimatedCard()
+                    WelcomeMessage()
                 }
                 
                 // Main grid of features
@@ -103,7 +110,7 @@ fun HomeScreen(
                     )
                 }
             }
-            
+
             // Privacy footer stays at bottom
             CompactPrivacyCard()
         }
@@ -113,19 +120,43 @@ fun HomeScreen(
 @SuppressLint("ResourceType")
 @Composable
 private fun HeaderSection(onNavigateToSettings: () -> Unit) {
+
     Box(
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 1.dp)
     ) {
-        // Logo centered
-        Image(
-            painter = painterResource(id = R.drawable.aurizen_logo),
-            contentDescription = "AuriZen Logo",
+        // Logo centered with both image and text side by side
+        Row(
             modifier = Modifier
-                .height(64.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .align(Alignment.Center)
-        )
-        
+                .align(Alignment.CenterStart)
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Logo image (doesn't change color)
+            Image(
+                painter = painterResource(id = R.drawable.aurizen),
+                contentDescription = "AuriZen Logo",
+                modifier = Modifier
+                    .height(40.dp)
+                    .clip(RoundedCornerShape(6.dp))
+            )
+            
+            Spacer(modifier = Modifier.width(8.dp))
+            
+            // Logo text (tinted with theme colors)
+            Image(
+                painter = painterResource(id = R.drawable.aurizen_logo),
+                contentDescription = "AuriZen Text",
+                colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onPrimary),
+                modifier = Modifier
+                    .offset(x = (-30).dp, y = 10.dp)
+                    .height(32.dp)
+                    .clip(RoundedCornerShape(4.dp))
+            )
+        }
+
         // Settings button on right
         IconButton(
             onClick = onNavigateToSettings,
@@ -134,7 +165,7 @@ private fun HeaderSection(onNavigateToSettings: () -> Unit) {
             Icon(
                 imageVector = Icons.Default.Person,
                 contentDescription = "Settings",
-                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
                 modifier = Modifier.size(24.dp)
             )
         }
@@ -142,100 +173,41 @@ private fun HeaderSection(onNavigateToSettings: () -> Unit) {
 }
 
 @Composable
-private fun CompactAnimatedCard() {
-    var currentIndex by remember { mutableStateOf(0) }
+private fun WelcomeMessage() {
+    var currentIndex by remember { mutableIntStateOf(0) }
     
-    val contentSections = listOf(
-        WelcomeSection(
-            title = "🌿 Meet AuriZen",
-            subtitle = "Your private AI wellness companion",
-            description = "In a noisy world, AuriZen offers quiet moments. Local AI for your emotional well-being."
-        ),
-        WelcomeSection(
-            title = "🧘 Personalized Meditations",
-            subtitle = "Created just for you",
-            description = "AuriZen crafts unique sessions based on your mood and needs. Tailored to how you're feeling."
-        ),
-        WelcomeSection(
-            title = "🎵 Binaural Soundscapes",
-            subtitle = "Science-backed audio for deeper states",
-            description = "Enhanced focus, relaxation, or sleep with specially tuned binaural beats."
-        ),
-        WelcomeSection(
-            title = "🌀 Local & Private",
-            subtitle = "Your thoughts are yours alone",
-            description = "AuriZen runs fully on your device. No data leaves your phone. No cloud, no tracking."
-        ),
-        WelcomeSection(
-            title = "🌱 Designed for Daily Moments",
-            subtitle = "No pressure. No pop-ups.",
-            description = "Small, mindful moments that help you feel more present and find your calm."
-        )
+    val messages = listOf(
+        "🌿 Your private AI wellness companion",
+        "🔒 Private & fully offline AI",
+        "🧘 Custom meditations for your mood",
+        "🌱 Mindful moments, no tracking",
+        "🎵 Binaural beats & soundscapes"
     )
 
     LaunchedEffect(Unit) {
         while (true) {
-            delay(6000)
-            currentIndex = (currentIndex + 1) % contentSections.size
+            delay(4000)
+            currentIndex = (currentIndex + 1) % messages.size
         }
     }
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
-        ),
-        shape = RoundedCornerShape(16.dp)
-    ) {
-        AnimatedContent(
-            targetState = contentSections[currentIndex],
-            transitionSpec = {
-                fadeIn(animationSpec = tween(800)) togetherWith 
-                fadeOut(animationSpec = tween(800))
-            },
-            label = "welcome_content"
-        ) { section ->
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-            ) {
-                Text(
-                    text = section.title,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    maxLines = 1
-                )
-
-                Spacer(modifier = Modifier.height(2.dp))
-
-                Text(
-                    text = section.subtitle,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
-                    maxLines = 1
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Text(
-                    text = section.description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
-                    maxLines = 2
-                )
-            }
-        }
+    AnimatedContent(
+        targetState = messages[currentIndex],
+        transitionSpec = {
+            fadeIn(animationSpec = tween(600)) togetherWith 
+            fadeOut(animationSpec = tween(600))
+        },
+        label = "welcome_message"
+    ) { message ->
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
-
-private data class WelcomeSection(
-    val title: String,
-    val subtitle: String,
-    val description: String
-)
 
 @Composable
 private fun MainFeaturesGrid(
@@ -277,7 +249,6 @@ private fun MainFeaturesGrid(
                 icon = Icons.Default.Psychology,
                 onClick = onNavigateToQuickChat,
                 modifier = Modifier.weight(1f),
-                useAuriZenIcon = false
             )
         }
         
@@ -340,7 +311,7 @@ private fun FeaturedCard(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
+            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f)
         ),
         shape = RoundedCornerShape(16.dp)
     ) {
@@ -364,15 +335,15 @@ private fun FeaturedCard(
             ) {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 
                 Text(
                     text = description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                 )
             }
         }
@@ -392,7 +363,7 @@ private fun CompactFeatureCard(
         onClick = onClick,
         modifier = modifier,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
+            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f)
         ),
         shape = RoundedCornerShape(16.dp)
     ) {
@@ -443,7 +414,7 @@ private fun CompactPrivacyCard() {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f)
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f)
         ),
         shape = RoundedCornerShape(12.dp)
     ) {
@@ -468,3 +439,4 @@ private fun CompactPrivacyCard() {
         }
     }
 }
+

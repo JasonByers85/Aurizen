@@ -9,11 +9,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.aurizen.ui.theme.AuriZenTheme
+import com.aurizen.ui.theme.ThemeManager
 import com.aurizen.ui.screens.SelectionRoute
 import com.aurizen.ui.screens.LoadingRoute
 import com.aurizen.ui.screens.HomeRoute
@@ -47,7 +51,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            AuriZenTheme {
+            val context = LocalContext.current
+            val themeManager = remember { ThemeManager.getInstance(context) }
+            val currentTheme by themeManager.getThemeState()
+            
+            AuriZenTheme(themeMode = currentTheme) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,

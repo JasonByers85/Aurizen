@@ -25,6 +25,8 @@ import com.aurizen.data.DreamStorage
 import com.aurizen.data.PersonalGoalsStorage
 import com.aurizen.data.UserProfile
 import com.aurizen.data.UserMemory
+import com.aurizen.ui.theme.ThemeManager
+import com.aurizen.ui.theme.ThemeMode
 
 @Composable
 internal fun SettingsRoute(
@@ -36,6 +38,7 @@ internal fun SettingsRoute(
     val dreamStorage = remember { DreamStorage.getInstance(context) }
     val goalsStorage = remember { PersonalGoalsStorage.getInstance(context) }
     val userProfile = remember { UserProfile.getInstance(context) }
+    val themeManager = remember { ThemeManager.getInstance(context) }
     
     SettingsScreen(
         memoryStorage = memoryStorage,
@@ -43,6 +46,7 @@ internal fun SettingsRoute(
         dreamStorage = dreamStorage,
         goalsStorage = goalsStorage,
         userProfile = userProfile,
+        themeManager = themeManager,
         context = context,
         onBack = onBack
     )
@@ -55,6 +59,7 @@ fun SettingsScreen(
     dreamStorage: DreamStorage,
     goalsStorage: PersonalGoalsStorage,
     userProfile: UserProfile,
+    themeManager: ThemeManager,
     context: Context,
     onBack: () -> Unit
 ) {
@@ -87,6 +92,11 @@ fun SettingsScreen(
                 modifier = Modifier.padding(start = 8.dp)
             )
         }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Theme Selection Section
+        ThemeSelectionSection(themeManager = themeManager)
         
         Spacer(modifier = Modifier.height(16.dp))
         
@@ -479,4 +489,170 @@ private fun EditMemoryDialog(
             }
         }
     )
+}
+
+@Composable
+private fun ThemeSelectionSection(themeManager: ThemeManager) {
+    val currentTheme by themeManager.getThemeState()
+    var showThemeDialog by remember { mutableStateOf(false) }
+    
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(
+                text = "App Theme",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = themeManager.getThemeDisplayName(currentTheme),
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium
+                    )
+                    
+                    Text(
+                        text = themeManager.getThemeDescription(currentTheme),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    )
+                }
+                
+                Button(
+                    onClick = { showThemeDialog = true },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Text("Change Theme")
+                }
+            }
+        }
+    }
+    
+    // Theme Selection Dialog
+    if (showThemeDialog) {
+        ThemeSelectionDialog(
+            currentTheme = currentTheme,
+            onThemeSelected = { newTheme ->
+                themeManager.setTheme(newTheme)
+                showThemeDialog = false
+            },
+            onDismiss = { showThemeDialog = false },
+            themeManager = themeManager
+        )
+    }
+}
+
+@Composable
+private fun ThemeSelectionDialog(
+    currentTheme: ThemeMode,
+    onThemeSelected: (ThemeMode) -> Unit,
+    onDismiss: () -> Unit,
+    themeManager: ThemeManager
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Choose Theme") },
+        text = {
+            LazyColumn(
+                modifier = Modifier.heightIn(max = 400.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(themeManager.getAllThemes()) { theme ->
+                    ThemeOptionItem(
+                        theme = theme,
+                        isSelected = theme == currentTheme,
+                        onSelected = { onThemeSelected(theme) },
+                        themeManager = themeManager
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Done")
+            }
+        }
+    )
+}
+
+@Composable
+private fun ThemeOptionItem(
+    theme: ThemeMode,
+    isSelected: Boolean,
+    onSelected: () -> Unit,
+    themeManager: ThemeManager
+) {
+    Card(
+        onClick = onSelected,
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) {
+                MaterialTheme.colorScheme.primaryContainer
+            } else {
+                MaterialTheme.colorScheme.surfaceVariant
+            }
+        ),
+        border = if (isSelected) {
+            androidx.compose.foundation.BorderStroke(
+                2.dp,
+                MaterialTheme.colorScheme.primary
+            )
+        } else null
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = themeManager.getThemeDisplayName(theme),
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
+                    color = if (isSelected) {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                )
+                
+                Text(
+                    text = themeManager.getThemeDescription(theme),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (isSelected) {
+                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    }
+                )
+            }
+            
+            if (isSelected) {
+                Icon(
+                    Icons.Default.Check,
+                    contentDescription = "Selected",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+    }
 }

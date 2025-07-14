@@ -17,7 +17,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import com.aurizen.ui.theme.AuriZenGradientBackground
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -246,21 +248,13 @@ fun UnifiedBreathingSessionScreen(
 ) {
     var showSettingsDialog by remember { mutableStateOf(false) }
 
-    // Copy exact gradient background from meditation
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFF1A1A2E),
-                        Color(0xFF16213E),
-                        Color(0xFF0F3460)
-                    )
-                )
-            )
-            .padding(16.dp)
-    ) {
+    // Use theme-aware gradient background
+    AuriZenGradientBackground {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
         // Copy exact top bar with audio controls from meditation
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -271,7 +265,7 @@ fun UnifiedBreathingSessionScreen(
                 Icon(
                     Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back",
-                    tint = Color.White
+                    tint = getContrastTextColor()
                 )
             }
 
@@ -282,7 +276,7 @@ fun UnifiedBreathingSessionScreen(
                     Icon(
                         if (audioSettings.ttsEnabled) Icons.Default.RecordVoiceOver else Icons.Default.VoiceOverOff,
                         contentDescription = if (audioSettings.ttsEnabled) "Disable Voice" else "Enable Voice",
-                        tint = if (audioSettings.ttsEnabled) Color(0xFF64B5F6) else Color.Gray,
+                        tint = if (audioSettings.ttsEnabled) MaterialTheme.colorScheme.primary else getContrastTextColor().copy(alpha = 0.6f),
                         modifier = Modifier.size(28.dp)
                     )
                 }
@@ -292,7 +286,7 @@ fun UnifiedBreathingSessionScreen(
                     Icon(
                         if (audioSettings.soundEnabled) Icons.Default.MusicNote else Icons.Default.MusicOff,
                         contentDescription = if (audioSettings.soundEnabled) "Disable Background Sound" else "Enable Background Sound",
-                        tint = if (audioSettings.soundEnabled) Color(0xFF64B5F6) else Color.Gray,
+                        tint = if (audioSettings.soundEnabled) MaterialTheme.colorScheme.primary else getContrastTextColor().copy(alpha = 0.6f),
                         modifier = Modifier.size(28.dp)
                     )
                 }
@@ -302,7 +296,7 @@ fun UnifiedBreathingSessionScreen(
                     Icon(
                         Icons.Default.GraphicEq,
                         contentDescription = if (audioSettings.binauralEnabled) "Disable Binaural" else "Enable Binaural",
-                        tint = if (audioSettings.binauralEnabled) Color(0xFF64B5F6) else Color.Gray,
+                        tint = if (audioSettings.binauralEnabled) MaterialTheme.colorScheme.primary else getContrastTextColor().copy(alpha = 0.6f),
                         modifier = Modifier.size(28.dp)
                     )
                 }
@@ -312,7 +306,7 @@ fun UnifiedBreathingSessionScreen(
                     Icon(
                         Icons.Default.Settings,
                         contentDescription = "Settings",
-                        tint = Color.Gray,
+                        tint = getContrastTextColor().copy(alpha = 0.6f),
                         modifier = Modifier.size(28.dp)
                     )
                 }
@@ -329,14 +323,14 @@ fun UnifiedBreathingSessionScreen(
         ) {
             Text(
                 text = "Cycle ${progress.currentCycle + 1} of ${progress.totalCycles}",
-                color = Color(0xFF64B5F6),
+                color = getContrastTextColor(),
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium
             )
             
             Text(
                 text = formatTime(progress.timeRemaining),
-                color = Color(0xFF64B5F6),
+                color = getContrastTextColor(),
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium
             )
@@ -348,8 +342,8 @@ fun UnifiedBreathingSessionScreen(
         LinearProgressIndicator(
             progress = { if (program.totalDuration > 0) (program.totalDuration - progress.timeRemaining).toFloat() / program.totalDuration.toFloat() else 0f },
             modifier = Modifier.fillMaxWidth(),
-            color = Color(0xFF64B5F6),
-            trackColor = Color.White.copy(alpha = 0.2f)
+            color = MaterialTheme.colorScheme.primary,
+            trackColor = getContrastTextColor().copy(alpha = 0.2f)
         )
 
         Spacer(modifier = Modifier.height(32.dp))
@@ -389,7 +383,8 @@ fun UnifiedBreathingSessionScreen(
             onDismiss = { showSettingsDialog = false }
         )
     }
-}
+    } // Close Column
+} // Close AuriZenGradientBackground
 
 @Composable
 private fun ReadyBreathingContent(
@@ -403,7 +398,7 @@ private fun ReadyBreathingContent(
     ) {
         Text(
             text = program.name,
-            color = Color.White,
+            color = getContrastTextColor(),
             fontSize = 28.sp,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center
@@ -413,7 +408,7 @@ private fun ReadyBreathingContent(
         
         Text(
             text = program.description,
-            color = Color.White.copy(alpha = 0.8f),
+            color = getContrastTextColor().copy(alpha = 0.8f),
             fontSize = 16.sp,
             textAlign = TextAlign.Center
         )
@@ -422,7 +417,7 @@ private fun ReadyBreathingContent(
         
         Text(
             text = "${program.inhaleSeconds}s inhale • ${program.holdSeconds}s hold • ${program.exhaleSeconds}s exhale",
-            color = Color(0xFF64B5F6),
+            color = MaterialTheme.colorScheme.primary,
             fontSize = 16.sp,
             textAlign = TextAlign.Center
         )
@@ -457,7 +452,7 @@ private fun ActiveBreathingContent(
     ) {
         Text(
             text = progress.currentPhase,
-            color = Color.White,
+            color = getContrastTextColor(),
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center
@@ -469,7 +464,7 @@ private fun ActiveBreathingContent(
         Card(
             modifier = Modifier.size(200.dp),
             colors = CardDefaults.cardColors(
-                containerColor = Color.White.copy(alpha = 0.1f)
+                containerColor = getContrastTextColor().copy(alpha = 0.1f)
             ),
             shape = CircleShape
         ) {
@@ -495,7 +490,7 @@ private fun ActiveBreathingContent(
                 .fillMaxWidth()
                 .weight(1f),
             colors = CardDefaults.cardColors(
-                containerColor = Color.White.copy(alpha = 0.1f)
+                containerColor = getContrastTextColor().copy(alpha = 0.1f)
             ),
             shape = RoundedCornerShape(16.dp)
         ) {
@@ -512,7 +507,7 @@ private fun ActiveBreathingContent(
                         "Hold" -> "Feel the stillness and peace within"
                         else -> "Follow your natural breathing rhythm"
                     },
-                    color = Color.White,
+                    color = getContrastTextColor(),
                     fontSize = 16.sp,
                     lineHeight = 24.sp,
                     textAlign = TextAlign.Start
@@ -566,7 +561,7 @@ private fun CompletedBreathingContent() {
     ) {
         Text(
             text = "Breathing Complete",
-            color = Color.White,
+            color = getContrastTextColor(),
             fontSize = 28.sp,
             fontWeight = FontWeight.Bold
         )
@@ -575,7 +570,7 @@ private fun CompletedBreathingContent() {
         
         Text(
             text = "Well done! Take a moment to notice how you feel.",
-            color = Color.White.copy(alpha = 0.8f),
+            color = getContrastTextColor().copy(alpha = 0.8f),
             fontSize = 16.sp,
             textAlign = TextAlign.Center
         )
@@ -625,7 +620,7 @@ private fun BreathingVisual(
                 text = countdown.toString(),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
-                color = Color.White
+                color = getContrastTextColor()
             )
         }
     }
@@ -665,4 +660,14 @@ private fun formatTime(seconds: Int): String {
     val minutes = seconds / 60
     val remainingSeconds = seconds % 60
     return "%02d:%02d".format(minutes, remainingSeconds)
+}
+
+@Composable
+private fun getContrastTextColor(): Color {
+    val backgroundColor = MaterialTheme.colorScheme.background
+    return if (backgroundColor.luminance() > 0.5f) {
+        Color.Black // Light background, use dark text
+    } else {
+        Color.White // Dark background, use light text
+    }
 }

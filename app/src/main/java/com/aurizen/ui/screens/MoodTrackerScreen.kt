@@ -494,6 +494,8 @@ private fun MoodVisualization(moodHistory: List<MoodEntry>) {
             // Get theme colors outside Canvas context
             val gridLineColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
             val centerLineColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
+            val moodLineColor = MaterialTheme.colorScheme.primary
+            val moodPointColor = MaterialTheme.colorScheme.secondary
             
             Canvas(
                 modifier = Modifier
@@ -558,7 +560,7 @@ private fun MoodVisualization(moodHistory: List<MoodEntry>) {
                     val y2 = centerY - (moodValues[i + 1] * centerY * 0.8f)
                     
                     drawLine(
-                        color = Color(0xFF4CAF50),
+                        color = moodLineColor,
                         start = Offset(x1, y1),
                         end = Offset(x2, y2),
                         strokeWidth = 4f
@@ -566,7 +568,7 @@ private fun MoodVisualization(moodHistory: List<MoodEntry>) {
                     
                     // Draw mood points
                     drawCircle(
-                        color = Color(0xFF2196F3),
+                        color = moodPointColor,
                         radius = 8f,
                         center = Offset(x1, y1)
                     )
@@ -577,7 +579,7 @@ private fun MoodVisualization(moodHistory: List<MoodEntry>) {
                     val lastX = (recentDays.size - 1).toFloat() * stepX
                     val lastY = centerY - (moodValues.last() * centerY * 0.8f)
                     drawCircle(
-                        color = Color(0xFF2196F3),
+                        color = moodPointColor,
                         radius = 8f,
                         center = Offset(lastX, lastY)
                     )

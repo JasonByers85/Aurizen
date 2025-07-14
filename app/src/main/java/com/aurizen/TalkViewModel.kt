@@ -7,6 +7,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
+import com.aurizen.prompts.PromptBuilder
+import com.aurizen.prompts.PromptContext
+import com.aurizen.prompts.PromptType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -123,23 +126,15 @@ class TalkViewModel(
     private fun buildSystemPrompt(): String {
         // Get user memories for context
         val userMemories = memoryStorage.getAllMemories()
-        val memoriesContext = if (userMemories.isNotEmpty()) {
-            val memoriesSummary = userMemories.take(3).joinToString("; ") { it.memory }
-            "Personal context: $memoriesSummary"
-        } else {
-            ""
-        }
-
-        // Shorter, conversational system prompt for faster responses
-        return """You are AuriZen, a supportive wellness AI built into this comprehensive wellness app. Keep responses conversational, friendly, and concise (1-2 paragraphs max). Focus on practical wellness advice.
-
-AuriZen's built-in features (recommend when relevant):
-- Guided meditations (AI-generated & predefined programs)
-- 9 breathing exercise programs (4-7-8, box breathing, etc.)
-- Mood tracking, dream journaling, personal goals
-
-${if (memoriesContext.isNotEmpty()) "Context: $memoriesContext\n" else ""}
-Be natural and supportive in our conversation:"""
+        val memoriesContext = userMemories.take(3).map { it.memory }
+        
+        // Create PromptContext with user memories
+        val promptContext = PromptContext(
+            userMemories = memoriesContext
+        )
+        
+        // Use PromptBuilder to build the system prompt
+        return PromptBuilder.build(PromptType.TALK, promptContext)
     }
     
 

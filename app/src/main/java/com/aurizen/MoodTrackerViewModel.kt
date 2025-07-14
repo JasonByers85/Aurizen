@@ -5,6 +5,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
+import com.aurizen.prompts.PromptBuilder
+import com.aurizen.prompts.PromptContext
+import com.aurizen.prompts.PromptType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -79,26 +82,10 @@ class MoodTrackerViewModel(
 
                 val moodSummary = analyzeMoodHistory(history)
 
-                val systemPrompt = """You are AuriZen, a supportive wellness AI within an app that provides meditations and breathing exercises. Analyze the user's mood journey and personal goals to provide encouraging, actionable insights that connect their emotional patterns with their life goals.
-
-User Context & Data:
-$moodSummary
-
-Provide insights in EXACTLY 4-5 short paragraphs (2-3 sentences each). Focus on:
-1. Observation about mood patterns and any connections to their personal goals
-2. Positive highlights and progress (both mood and goal-related)
-3. 2-3 practical suggestions that connect mood management with goal achievement (mention app's meditations/breathing exercises when relevant)
-4. Gentle encouragement for challenges, relating to both emotional wellbeing and goal progress
-5. Motivational closing that ties mood and goals together (optional)
-
-IMPORTANT: 
-- Connect mood patterns with personal goals and context when possible (e.g., "Your fitness goal progress seems to align with your happier days")
-- Reference personal context naturally when relevant to provide personalized insights
-- Keep each paragraph SHORT (2-3 sentences max)
-- Total response under 400 words
-- Be supportive, hopeful, and actionable
-- Avoid clinical language or diagnosing
-- Use the current date context to provide timely advice"""
+                val context = PromptContext(
+                    additionalContext = mapOf("moodSummary" to moodSummary)
+                )
+                val systemPrompt = PromptBuilder.build(PromptType.MOOD_INSIGHTS, context)
 
                 val prompt = """$systemPrompt
 

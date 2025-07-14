@@ -81,20 +81,11 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("com.google.android.material:material:1.12.0")
-
-    // Google Fit / Health Connect
-    implementation("com.google.android.gms:play-services-fitness:21.2.0")
-    implementation("com.google.android.gms:play-services-auth:21.3.0")
-
-    // Health Connect (for newer Android versions)
-    implementation("androidx.health.connect:connect-client:1.0.0-alpha11")
-
     // For animations in breathing exercises
     implementation("androidx.compose.animation:animation:1.8.3")
 
     // Additional Material 3 icons
     implementation("androidx.compose.material:material-icons-extended:1.7.8")
-
     implementation ("com.google.mediapipe:tasks-genai:0.10.25")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("net.openid:appauth:0.11.1") // Add AppAuth for OAuth support

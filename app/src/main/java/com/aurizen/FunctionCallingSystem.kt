@@ -3,6 +3,8 @@ package com.aurizen
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
+import com.aurizen.prompts.PromptBuilder
+import com.aurizen.prompts.PromptType
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 
@@ -81,11 +83,7 @@ class FunctionCallingSystem private constructor(private val context: Context) {
      * Gets function calling prompt - short and simple
      */
     fun getFunctionCallingPrompt(): String {
-        return """Functions:
-STORE_MEMORY: FUNCTION_CALL:STORE_MEMORY:{"memory":"text"}
-CREATE_MEDITATION: FUNCTION_CALL:CREATE_MEDITATION:{"focus":"sleep","duration":10}
-
-Use when user wants to remember something or create meditation."""
+        return PromptBuilder.build(PromptType.FUNCTION_CALLING)
     }
 
     /**

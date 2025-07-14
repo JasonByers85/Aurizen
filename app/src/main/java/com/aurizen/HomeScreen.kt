@@ -271,11 +271,11 @@ private fun MainFeaturesGrid(
             
             CompactFeatureCard(
                 title = "Quick Support",
-                description = "Instant advice",
+                description = "Text chat & advice",
                 icon = Icons.Default.Psychology,
                 onClick = onNavigateToQuickChat,
                 modifier = Modifier.weight(1f),
-                useAuriZenIcon = true
+                useAuriZenIcon = false
             )
         }
         
@@ -291,14 +291,14 @@ private fun MainFeaturesGrid(
                 onClick = onNavigateToMoodTracker,
                 modifier = Modifier.weight(1f)
             )
-            
             CompactFeatureCard(
-                title = "Breathing",
-                description = "Calm exercises",
-                icon = Icons.Default.Air,
-                onClick = onNavigateToBreathing,
+                title = "Personal Goals",
+                description = "Track progress",
+                icon = Icons.Default.Flag,
+                onClick = onNavigateToPersonalGoals,
                 modifier = Modifier.weight(1f)
             )
+
         }
         
         // Third row - supporting features
@@ -307,6 +307,14 @@ private fun MainFeaturesGrid(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             CompactFeatureCard(
+                title = "Breathing",
+                description = "Calm exercises",
+                icon = Icons.Default.Air,
+                onClick = onNavigateToBreathing,
+                modifier = Modifier.weight(1f)
+            )
+
+            CompactFeatureCard(
                 title = "Dream Insights",
                 description = "Understand dreams",
                 icon = Icons.Default.Bedtime,
@@ -314,13 +322,7 @@ private fun MainFeaturesGrid(
                 modifier = Modifier.weight(1f)
             )
             
-            CompactFeatureCard(
-                title = "Personal Goals",
-                description = "Track progress",
-                icon = Icons.Default.Flag,
-                onClick = onNavigateToPersonalGoals,
-                modifier = Modifier.weight(1f)
-            )
+
         }
     }
 }

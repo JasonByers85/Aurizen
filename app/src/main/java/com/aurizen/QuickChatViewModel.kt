@@ -5,6 +5,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
+import com.aurizen.prompts.PromptBuilder
+import com.aurizen.prompts.PromptContext
+import com.aurizen.prompts.PromptType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -33,58 +36,25 @@ class QuickChatViewModel(
     private fun buildSystemPrompt(): String {
         // Get recent mood entries (last 5 days)
         val recentMoods = moodStorage.getAllMoodEntries().takeLast(5)
-        val moodContext = if (recentMoods.isNotEmpty()) {
-            val moodSummary = recentMoods.joinToString(", ") { "${it.mood}" }
-            "Recent moods: $moodSummary"
-        } else {
-            "Recent moods: Not tracked recently"
-        }
         
         // Get active personal goals
         val activeGoals = goalsStorage.getActiveGoals()
-        val goalsContext = if (activeGoals.isNotEmpty()) {
-            val goalsSummary = activeGoals.take(3).joinToString(", ") { "${it.title} (${it.category.displayName})" }
-            "Active goals: $goalsSummary"
-        } else {
-            "Active goals: None set"
-        }
         
         // Get user memories
-        val userMemories = memoryStorage.getAllMemories()
-        val memoriesContext = if (userMemories.isNotEmpty()) {
-            val memoriesSummary = userMemories.take(5).joinToString("; ") { it.memory }
-            "Personal context to remember: $memoriesSummary"
-        } else {
-            "Personal context: None stored"
-        }
-
-        return """You are a supportive AI wellness companion built into AuriZen, a comprehensive wellness app. Provide helpful, concise advice for mental health, stress management, and general wellness.
-
-Your guidelines:
-• Keep responses helpful but concise (2-3 paragraphs max)
-• Focus on practical, actionable advice that connects to their goals and mood patterns
-• Be warm and supportive without being overly emotional
-• Provide specific techniques and strategies
-• Don't diagnose - suggest professional help when appropriate
-• Each conversation is independent, don't reference past interactions
-• IMPORTANT: AuriZen has built-in guided meditations and breathing exercises - recommend these features when relevant instead of external apps or resources
-
-AuriZen's available features:
-- Guided meditation sessions (both AI-generated and predefined programs like mindfulness, body scan, loving-kindness)
-- 9 different breathing exercise programs (4-7-8 breathing, box breathing, quick calm, etc.)
-- Mood tracking and analysis
-- Dream interpretation and journaling
-- Personal goals tracking
-- Speech-enabled conversations (Talk feature)
-
-Current user context:
-- Profile mood: ${userProfile.mood}
-- Recent topics: ${userProfile.getRecentTopics().joinToString(", ")}
-- $moodContext
-- $goalsContext
-- $memoriesContext
-
-When relevant, connect your advice to their personal goals, mood patterns, and any personal context they've shared. Respond with practical wellness support:"""
+        val userMemories = memoryStorage.getAllMemories().map { it.memory }
+        
+        // Get recent topics
+        val recentTopics = userProfile.getRecentTopics()
+        
+        // Build context for PromptBuilder
+        val context = PromptContext(
+            userMemories = userMemories,
+            recentMoods = recentMoods,
+            personalGoals = activeGoals,
+            recentTopics = recentTopics
+        )
+        
+        return PromptBuilder.build(PromptType.QUICK_CHAT, context)
     }
 
     fun sendMessage(userMessage: String) {

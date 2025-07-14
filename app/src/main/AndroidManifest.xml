@@ -24,7 +24,7 @@
         android:theme="@style/Theme.LLMInference"
         tools:targetApi="31">
 
-        <activity android:name="com.aurizen.OAuthCallbackActivity"
+        <activity android:name="com.aurizen.activities.OAuthCallbackActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW"/>
@@ -36,12 +36,12 @@
             </intent-filter>
         </activity>
 
-        <activity android:name="com.aurizen.LoginActivity"
+        <activity android:name="com.aurizen.activities.LoginActivity"
             android:exported="true"
             android:theme="@style/Theme.LLMInference">
         </activity>
 
-        <activity android:name="com.aurizen.LicenseAcknowledgmentActivity"
+        <activity android:name="com.aurizen.activities.LicenseAcknowledgmentActivity"
             android:exported="true"
             android:theme="@style/Theme.LLMInference">
         </activity>

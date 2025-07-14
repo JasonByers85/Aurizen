@@ -14,6 +14,19 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.aurizen.ui.theme.AuriZenTheme
+import com.aurizen.ui.screens.SelectionRoute
+import com.aurizen.ui.screens.LoadingRoute
+import com.aurizen.ui.screens.HomeRoute
+import com.aurizen.ui.screens.QuickChatRoute
+import com.aurizen.ui.screens.MeditationRoute
+import com.aurizen.ui.screens.UnifiedMeditationSessionRoute
+import com.aurizen.features.breathing.BreathingRoute
+import com.aurizen.ui.screens.MoodTrackerRoute
+import com.aurizen.ui.screens.DreamInterpreterRoute
+import com.aurizen.ui.screens.PersonalGoalsRoute
+import com.aurizen.ui.screens.TTSSettingsRoute
+import com.aurizen.ui.screens.SettingsRoute
+import com.aurizen.ui.screens.TalkRoute
 
 const val START_SCREEN = "start_screen"
 const val LOAD_SCREEN = "load_screen"

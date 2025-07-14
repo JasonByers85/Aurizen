@@ -1,7 +1,7 @@
 package com.aurizen.prompts
 
-import com.aurizen.MoodEntry
-import com.aurizen.PersonalGoal
+import com.aurizen.data.MoodEntry
+import com.aurizen.data.PersonalGoal
 import java.text.SimpleDateFormat
 import java.util.*
 

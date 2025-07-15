@@ -44,5 +44,6 @@ class ThemeManager private constructor(context: Context) {
         ThemeMode.VIBRANT -> "Bold, energetic colors"
         ThemeMode.OCEAN -> "Cool blues and aquatic tones"
         ThemeMode.SUNSET -> "Warm oranges and golden hues"
+        ThemeMode.FOREST_GREEN -> "Deep forest greens and teals"
     }
 }

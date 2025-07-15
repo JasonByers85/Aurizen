@@ -9,5 +9,6 @@ enum class ThemeMode(val displayName: String) {
     MINIMAL("Minimal"),
     VIBRANT("Vibrant"),
     OCEAN("Ocean"),
-    SUNSET("Sunset")
+    SUNSET("Sunset"),
+    FOREST_GREEN("Forest Green")
 }

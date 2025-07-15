@@ -17,8 +17,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -28,6 +33,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -41,10 +47,14 @@ import java.util.*
 import com.aurizen.data.MultimodalChatMessage
 import com.aurizen.data.isFromUser
 import com.aurizen.data.getDisplayContent
+import com.aurizen.core.FunctionCallingSystem
 
 @Composable
 internal fun TalkRoute(
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onNavigateToMeditation: (String) -> Unit = {},
+    onNavigateToGoals: () -> Unit = {},
+    onNavigateToSettings: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val viewModel: TalkViewModel = viewModel(
@@ -53,6 +63,9 @@ internal fun TalkRoute(
     
     TalkScreen(
         viewModel = viewModel,
+        onNavigateToMeditation = onNavigateToMeditation,
+        onNavigateToGoals = onNavigateToGoals,
+        onNavigateToSettings = onNavigateToSettings,
         onBack = onBack
     )
 }
@@ -61,6 +74,9 @@ internal fun TalkRoute(
 @Composable
 fun TalkScreen(
     viewModel: TalkViewModel,
+    onNavigateToMeditation: (String) -> Unit,
+    onNavigateToGoals: () -> Unit,
+    onNavigateToSettings: () -> Unit,
     onBack: () -> Unit
 ) {
     val chatHistory by viewModel.chatHistory.collectAsState()
@@ -69,11 +85,28 @@ fun TalkScreen(
     val isProcessing by viewModel.isProcessing.collectAsState()
     val currentTranscript by viewModel.currentTranscript.collectAsState()
     val streamingResponse by viewModel.streamingResponse.collectAsState()
+    val functionCallResult by viewModel.functionCallResult.collectAsState()
+    val isVoiceEnabled by viewModel.isVoiceEnabled.collectAsState()
     
     var showTTSSettings by remember { mutableStateOf(false) }
     
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
+    
+    // Refresh voice settings when screen first appears
+    // Chat history is now loaded automatically in ViewModel init
+    LaunchedEffect(Unit) {
+        println("🔄 TalkScreen: LaunchedEffect triggered - refreshing voice settings")
+        viewModel.refreshVoiceSettings()
+    }
+    
+    // Debug the chat history state
+    LaunchedEffect(chatHistory) {
+        println("📊 TalkScreen: Chat history changed to ${chatHistory.size} messages")
+        chatHistory.forEachIndexed { index, message ->
+            println("📝 TalkScreen: Message $index: ${message.getDisplayContent().take(50)}...")
+        }
+    }
     
     // Auto-scroll to bottom when new messages arrive or during streaming
     LaunchedEffect(chatHistory.size, streamingResponse) {
@@ -96,7 +129,7 @@ fun TalkScreen(
                 title = {
                     Column {
                         Text(
-                            text = "Talk with AuriZen",
+                            text = "AuriZen",
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -110,6 +143,19 @@ fun TalkScreen(
                     }
                 },
                 actions = {
+                    // Voice toggle button
+                    IconButton(onClick = { viewModel.toggleVoice() }) {
+                        Icon(
+                            imageVector = if (isVoiceEnabled) Icons.AutoMirrored.Default.VolumeUp else Icons.AutoMirrored.Default.VolumeOff,
+                            contentDescription = if (isVoiceEnabled) "Disable Voice" else "Enable Voice",
+                            tint = if (isVoiceEnabled) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            }
+                        )
+                    }
+                    
                     // TTS Settings button
                     IconButton(onClick = { showTTSSettings = true }) {
                         Icon(
@@ -141,11 +187,14 @@ fun TalkScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(vertical = 16.dp)
             ) {
+                println("🖥️ TalkScreen: LazyColumn rendering with ${chatHistory.size} messages")
                 if (chatHistory.isEmpty()) {
+                    println("🖥️ TalkScreen: Showing welcome message (empty history)")
                     item {
                         WelcomeMessage()
                     }
                 } else {
+                    println("🖥️ TalkScreen: Rendering ${chatHistory.size} chat messages")
                     items(chatHistory) { message ->
                         ChatMessageItem(message = message)
                     }
@@ -161,14 +210,28 @@ fun TalkScreen(
                         ProcessingIndicator()
                     }
                 }
+                
+                // Show function call result (e.g., meditation created)
+                functionCallResult?.actionButton?.let { actionButton ->
+                    item {
+                        FunctionCallResultCard(
+                            result = functionCallResult!!,
+                            onClearResult = { viewModel.clearFunctionCallResult() },
+                            onNavigateToMeditation = onNavigateToMeditation,
+                            onNavigateToGoals = onNavigateToGoals,
+                            onNavigateToSettings = onNavigateToSettings
+                        )
+                    }
+                }
             }
             
-            // Voice Input Section
-            VoiceInputSection(
+            // Input Section (Voice and Text)
+            InputSection(
                 isListening = isListening,
                 isSpeaking = isSpeaking,
                 isProcessing = isProcessing,
                 currentTranscript = currentTranscript,
+                isVoiceEnabled = isVoiceEnabled,
                 viewModel = viewModel,
                 onStopListening = { viewModel.stopListening() },
                 onStopSpeaking = { viewModel.stopSpeaking() }
@@ -179,7 +242,10 @@ fun TalkScreen(
     // TTS Settings Dialog
     if (showTTSSettings) {
         TTSSettingsDialog(
-            onDismiss = { showTTSSettings = false }
+            onDismiss = { 
+                showTTSSettings = false
+                viewModel.refreshVoiceSettings() // Refresh voice settings when dialog is dismissed
+            }
         )
     }
 }
@@ -207,7 +273,7 @@ private fun WelcomeMessage() {
             Spacer(modifier = Modifier.height(12.dp))
             
             Text(
-                text = "Welcome to Talk Mode",
+                text = "Welcome to Talk",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center
@@ -216,7 +282,7 @@ private fun WelcomeMessage() {
             Spacer(modifier = Modifier.height(8.dp))
             
             Text(
-                text = "Tap the microphone to start a voice conversation with AuriZen. I'll listen to your questions and respond with both text and speech.",
+                text = "Talk with AuriZen using voice or text. Tap the microphone to speak, or type your messages. Your conversation history is saved until you delete it.",
                 style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
@@ -471,16 +537,18 @@ private fun ProcessingIndicator() {
 }
 
 @Composable
-private fun VoiceInputSection(
+private fun InputSection(
     isListening: Boolean,
     isSpeaking: Boolean,
     isProcessing: Boolean,
     currentTranscript: String,
+    isVoiceEnabled: Boolean,
     viewModel: TalkViewModel,
     onStopListening: () -> Unit,
     onStopSpeaking: () -> Unit
 ) {
     val context = LocalContext.current
+    var textInput by remember { mutableStateOf("") }
     var hasPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(
@@ -504,7 +572,6 @@ private fun VoiceInputSection(
             val spokenText = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
             spokenText?.let { results ->
                 if (results.isNotEmpty()) {
-                    // Process the speech result directly through ViewModel
                     viewModel.processDirectSpeechInput(results[0])
                 }
             }
@@ -519,128 +586,282 @@ private fun VoiceInputSection(
         }
         speechLauncher.launch(intent)
     }
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // Current transcript
-            if (currentTranscript.isNotEmpty()) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                    )
+    
+    Column {
+        // Current transcript display
+        if (currentTranscript.isNotEmpty()) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                )
+            ) {
+                Text(
+                    text = currentTranscript,
+                    modifier = Modifier.padding(12.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+        
+        // Status display for voice states (don't show speaking status when voice is disabled)
+        if ((isSpeaking && isVoiceEnabled) || isListening || isProcessing) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = currentTranscript,
-                        modifier = Modifier.padding(12.dp),
-                        style = MaterialTheme.typography.bodyMedium,
-                        textAlign = TextAlign.Center
+                    when {
+                        isSpeaking && isVoiceEnabled -> {
+                            Icon(
+                                Icons.AutoMirrored.Default.VolumeUp,
+                                contentDescription = "Speaking",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Speaking...",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            IconButton(onClick = onStopSpeaking) {
+                                Icon(
+                                    Icons.Default.Stop,
+                                    contentDescription = "Stop Speaking",
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
+                        isListening -> {
+                            Icon(
+                                Icons.Default.Mic,
+                                contentDescription = "Listening",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Listening...",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            IconButton(onClick = onStopListening) {
+                                Icon(
+                                    Icons.Default.Stop,
+                                    contentDescription = "Stop Listening",
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
+                        isProcessing -> {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Processing...",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Main input area
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp),
+                verticalAlignment = Alignment.Bottom
+            ) {
+                // Microphone button
+                IconButton(
+                    onClick = {
+                        if (hasPermission) {
+                            startSpeechRecognition()
+                        } else {
+                            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                        }
+                    },
+                    enabled = !isProcessing && !isSpeaking && !isListening
+                ) {
+                    Icon(
+                        Icons.Default.Mic,
+                        contentDescription = "Voice Input",
+                        tint = if (!isProcessing && !isSpeaking && !isListening) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                        }
                     )
                 }
                 
-                Spacer(modifier = Modifier.height(12.dp))
+                // Text input field
+                TextField(
+                    value = textInput,
+                    onValueChange = { textInput = it },
+                    modifier = Modifier.weight(1f),
+                    placeholder = { Text("Type your message or tap mic to speak...") },
+                    enabled = !isProcessing && !isSpeaking && !isListening,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                    keyboardActions = KeyboardActions(
+                        onSend = {
+                            if (textInput.isNotBlank()) {
+                                viewModel.sendTextMessage(textInput)
+                                textInput = ""
+                            }
+                        }
+                    ),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                )
+                
+                // Send button
+                IconButton(
+                    onClick = {
+                        if (textInput.isNotBlank()) {
+                            viewModel.sendTextMessage(textInput)
+                            textInput = ""
+                        }
+                    },
+                    enabled = !isProcessing && !isSpeaking && !isListening && textInput.isNotBlank()
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Default.Send,
+                        contentDescription = "Send",
+                        tint = if (!isProcessing && !isSpeaking && !isListening && textInput.isNotBlank()) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                        }
+                    )
+                }
             }
-            
-            // Voice control buttons
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalAlignment = Alignment.CenterVertically
+        }
+    }
+}
+
+
+@Composable
+private fun FunctionCallResultCard(
+    result: FunctionCallingSystem.FunctionCallResult,
+    onClearResult: () -> Unit,
+    onNavigateToMeditation: (String) -> Unit,
+    onNavigateToGoals: () -> Unit,
+    onNavigateToSettings: () -> Unit
+) {
+    result.actionButton?.let { actionButton ->
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                when {
-                    isSpeaking -> {
-                        // Stop speaking button
-                        FloatingActionButton(
-                            onClick = onStopSpeaking,
-                            containerColor = MaterialTheme.colorScheme.error
-                        ) {
-                            Icon(
-                                Icons.Default.Stop,
-                                contentDescription = "Stop Speaking"
-                            )
-                        }
-                        
-                        Text(
-                            text = "Speaking...",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                        )
-                    }
-                    
-                    isListening -> {
-                        // Stop listening button
-                        FloatingActionButton(
-                            onClick = onStopListening,
-                            containerColor = MaterialTheme.colorScheme.error
-                        ) {
-                            Icon(
-                                Icons.Default.Stop,
-                                contentDescription = "Stop Listening"
-                            )
-                        }
-                        
-                        Text(
-                            text = "Listening...",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                    
-                    isProcessing -> {
-                        // Processing state
-                        FloatingActionButton(
-                            onClick = { },
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
-                        ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                strokeWidth = 2.dp
-                            )
-                        }
-                        
-                        Text(
-                            text = "Processing...",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                        )
-                    }
-                    
-                    else -> {
-                        // Start listening button
-                        FloatingActionButton(
-                            onClick = {
-                                if (hasPermission) {
-                                    startSpeechRecognition()
-                                } else {
-                                    permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                Text(
+                    text = "✨ Action Available",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+                
+                // Add informative label for meditation creation
+                if (actionButton.action == FunctionCallingSystem.ButtonAction.START_MEDITATION) {
+                    Text(
+                        text = "💡 This meditation will be saved to your library for future access",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                    )
+                }
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            // Handle action button click (start meditation, etc.)
+                            actionButton.parameter?.let { parameter ->
+                                when (actionButton.action) {
+                                    FunctionCallingSystem.ButtonAction.START_MEDITATION -> {
+                                        onNavigateToMeditation(parameter)
+                                    }
+                                    FunctionCallingSystem.ButtonAction.VIEW_GOALS -> {
+                                        onNavigateToGoals()
+                                    }
+                                    FunctionCallingSystem.ButtonAction.VIEW_MEMORIES -> {
+                                        onNavigateToSettings()
+                                    }
+                                    else -> {
+                                        // Handle other actions if needed
+                                    }
                                 }
-                            },
-                            containerColor = MaterialTheme.colorScheme.primary
-                        ) {
-                            Icon(
-                                Icons.Default.Mic,
-                                contentDescription = "Start Speaking"
-                            )
-                        }
-                        
-                        Text(
-                            text = if (hasPermission) "Tap to speak" else "Tap to enable microphone",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                        )
+                            } ?: run {
+                                // Handle actions without parameters
+                                when (actionButton.action) {
+                                    FunctionCallingSystem.ButtonAction.VIEW_GOALS -> {
+                                        onNavigateToGoals()
+                                    }
+                                    FunctionCallingSystem.ButtonAction.VIEW_MEMORIES -> {
+                                        onNavigateToSettings()
+                                    }
+                                    else -> {
+                                        // Handle other parameterless actions if needed
+                                    }
+                                }
+                            }
+                            onClearResult()
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(actionButton.text)
+                    }
+                    
+                    OutlinedButton(
+                        onClick = onClearResult,
+                        modifier = Modifier.wrapContentWidth()
+                    ) {
+                        Text("Dismiss")
                     }
                 }
             }
-            
         }
     }
 }
@@ -751,7 +972,10 @@ private fun TTSSettingsDialog(
                             }
                             Switch(
                                 checked = ttsEnabled,
-                                onCheckedChange = { ttsEnabled = it }
+                                onCheckedChange = { 
+                                    ttsEnabled = it
+                                    ttsSettings.setTtsEnabled(it)
+                                }
                             )
                         }
                     }
@@ -777,7 +1001,10 @@ private fun TTSSettingsDialog(
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Slider(
                                     value = speechRate,
-                                    onValueChange = { speechRate = it },
+                                    onValueChange = { 
+                                        speechRate = it
+                                        ttsSettings.setSpeechRate(it)
+                                    },
                                     valueRange = 0.5f..2.0f,
                                     steps = 14
                                 )
@@ -799,7 +1026,10 @@ private fun TTSSettingsDialog(
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Slider(
                                     value = pitch,
-                                    onValueChange = { pitch = it },
+                                    onValueChange = { 
+                                        pitch = it
+                                        ttsSettings.setPitch(it)
+                                    },
                                     valueRange = 0.5f..2.0f,
                                     steps = 14
                                 )
@@ -821,7 +1051,10 @@ private fun TTSSettingsDialog(
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Slider(
                                     value = volume,
-                                    onValueChange = { volume = it },
+                                    onValueChange = { 
+                                        volume = it
+                                        ttsSettings.setVolume(it)
+                                    },
                                     valueRange = 0.1f..1.0f,
                                     steps = 8
                                 )
@@ -884,6 +1117,7 @@ private fun TTSSettingsDialog(
                                             selected = genderPreference == gender,
                                             onClick = {
                                                 genderPreference = gender
+                                                ttsSettings.setGenderPreference(gender)
                                                 
                                                 // Auto-apply gender preference to voice selection
                                                 if (gender != "Any") {
@@ -896,6 +1130,7 @@ private fun TTSSettingsDialog(
                                                     }
                                                     filteredVoices.firstOrNull()?.let { voice ->
                                                         selectedVoice = voice.name
+                                                        ttsSettings.setVoice(voice.name)
                                                         testTts?.voice = voice
                                                     }
                                                 }
@@ -952,6 +1187,7 @@ private fun TTSSettingsDialog(
                                                 selected = selectedVoice == voice.name,
                                                 onClick = {
                                                     selectedVoice = voice.name
+                                                    ttsSettings.setVoice(voice.name)
                                                     testTts?.voice = voice
                                                 }
                                             )
@@ -978,6 +1214,7 @@ private fun TTSSettingsDialog(
                                                 selected = selectedVoice == voice.name,
                                                 onClick = {
                                                     selectedVoice = voice.name
+                                                    ttsSettings.setVoice(voice.name)
                                                     testTts?.voice = voice
                                                 }
                                             )
@@ -1004,6 +1241,7 @@ private fun TTSSettingsDialog(
                                                 selected = selectedVoice == voice.name,
                                                 onClick = {
                                                     selectedVoice = voice.name
+                                                    ttsSettings.setVoice(voice.name)
                                                     testTts?.voice = voice
                                                 }
                                             )

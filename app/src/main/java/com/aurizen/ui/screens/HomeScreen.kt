@@ -27,8 +27,11 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.isSystemInDarkTheme
 import kotlinx.coroutines.delay
 import com.aurizen.ui.theme.AuriZenGradientBackground
+import com.aurizen.ui.theme.ThemeManager
+import com.aurizen.ui.theme.ThemeMode
 import com.aurizen.data.UserProfile
 import com.aurizen.R
 import androidx.compose.ui.graphics.ColorFilter
@@ -117,16 +120,37 @@ fun HomeScreen(
     }
 }
 
+@Composable
+private fun shouldUseLightLogo(): Boolean {
+    val context = LocalContext.current
+    val themeManager = remember { ThemeManager.getInstance(context) }
+    val currentTheme by themeManager.getThemeState()
+    val isSystemInDarkTheme = isSystemInDarkTheme()
+    
+    return when (currentTheme) {
+        ThemeMode.LIGHT -> true
+        ThemeMode.DARK -> false
+        ThemeMode.SYSTEM -> !isSystemInDarkTheme
+        ThemeMode.PASTEL -> !isSystemInDarkTheme
+        ThemeMode.NATURE -> !isSystemInDarkTheme
+        ThemeMode.MINIMAL -> !isSystemInDarkTheme
+        ThemeMode.VIBRANT -> !isSystemInDarkTheme
+        ThemeMode.OCEAN -> !isSystemInDarkTheme
+        ThemeMode.SUNSET -> !isSystemInDarkTheme
+        ThemeMode.FOREST_GREEN -> !isSystemInDarkTheme
+    }
+}
+
 @SuppressLint("ResourceType")
 @Composable
 private fun HeaderSection(onNavigateToSettings: () -> Unit) {
+    val useLightLogo = shouldUseLightLogo()
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 1.dp)
     ) {
-        // Logo centered with both image and text side by side
         Row(
             modifier = Modifier
                 .align(Alignment.CenterStart)
@@ -134,25 +158,18 @@ private fun HeaderSection(onNavigateToSettings: () -> Unit) {
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Logo image (doesn't change color)
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // Logo (automatically switches between light and dark versions)
             Image(
-                painter = painterResource(id = R.drawable.aurizen),
+                painter = painterResource(
+                    id = if (useLightLogo) R.drawable.aurizen_logo_light else R.drawable.aurizen_logo
+                ),
                 contentDescription = "AuriZen Logo",
                 modifier = Modifier
-                    .height(40.dp)
-                    .clip(RoundedCornerShape(6.dp))
-            )
-            
-            Spacer(modifier = Modifier.width(8.dp))
-            
-            // Logo text (tinted with theme colors)
-            Image(
-                painter = painterResource(id = R.drawable.aurizen_logo),
-                contentDescription = "AuriZen Text",
-                colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onPrimary),
-                modifier = Modifier
-                    .offset(x = (-30).dp, y = 10.dp)
-                    .height(32.dp)
+                    .offset(x = (-20).dp)
+                    .height(56.dp)
                     .clip(RoundedCornerShape(4.dp))
             )
         }
@@ -180,8 +197,12 @@ private fun WelcomeMessage() {
         "🌿 Your private AI wellness companion",
         "🔒 Private & fully offline AI",
         "🧘 Custom meditations for your mood",
-        "🌱 Mindful moments, no tracking",
-        "🎵 Binaural beats & soundscapes"
+        "🌱 Mindful moments, personally tuned for you",
+        "🎵 Binaural beats & soundscapes",
+        "Awareness...",
+        "Understanding...",
+        "Reflection...",
+        "Inner-Peace..."
     )
 
     LaunchedEffect(Unit) {
@@ -237,7 +258,7 @@ private fun MainFeaturesGrid(
         ) {
             CompactFeatureCard(
                 title = "Talk",
-                description = "Voice chat",
+                description = "Voice & text chat",
                 icon = Icons.Default.RecordVoiceOver,
                 onClick = onNavigateToTalk,
                 modifier = Modifier.weight(1f)
@@ -357,7 +378,6 @@ private fun CompactFeatureCard(
     icon: ImageVector,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    useAuriZenIcon: Boolean = false
 ) {
     Card(
         onClick = onClick,
@@ -373,21 +393,14 @@ private fun CompactFeatureCard(
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            if (useAuriZenIcon) {
-                Image(
-                    painter = painterResource(id = R.drawable.aurizen),
-                    contentDescription = title,
-                    modifier = Modifier.size(28.dp)
-                )
-            } else {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = title,
-                    modifier = Modifier.size(28.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
-            
+            Icon(
+                imageVector = icon,
+                contentDescription = title,
+                modifier = Modifier.size(28.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+
+
             Spacer(modifier = Modifier.height(8.dp))
             
             Text(

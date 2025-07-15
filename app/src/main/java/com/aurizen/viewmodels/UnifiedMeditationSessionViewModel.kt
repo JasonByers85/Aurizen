@@ -246,8 +246,10 @@ class UnifiedMeditationSessionViewModel(
 
     private suspend fun setupSavedMeditation() {
         Log.d(TAG, "💾 Setting up saved meditation")
-
-        val savedMeditation = loadSavedMeditation(meditationType)
+        
+        // Use the full meditation ID as it's stored
+        val actualMeditationId = meditationType
+        val savedMeditation = loadSavedMeditation(actualMeditationId)
         if (savedMeditation == null) {
             withContext(Dispatchers.Main) {
                 _generationStatus.value = MeditationGenerationStatus.Error(
@@ -663,27 +665,40 @@ class UnifiedMeditationSessionViewModel(
 
         // Use mood-specific guidance if available
         return if (config.focus == "mood-guided wellness" && config.moodContext.isNotEmpty()) {
-            val context = PromptContext(
-                additionalContext = mapOf(
-                    "step" to (stepIndex + 1),
-                    "totalSteps" to config.totalSteps,
-                    "duration" to config.stepDuration,
-                    "stepType" to stepType,
-                    "moodContext" to config.moodContext
-                )
-            )
-            PromptBuilder.build(PromptType.MEDITATION_MOOD_GUIDED, context)
+            """
+            Create a personalized ${stepType} meditation step for someone based on their recent emotional journey.
+            Step ${stepIndex + 1} of ${config.totalSteps} | Duration: ${config.stepDuration} seconds
+            
+            IMPORTANT: Reference their actual mood patterns naturally and supportively. Guide them through their recent experiences with compassion.
+            
+            Their Recent Mood Journey:
+            ${config.moodContext}
+            
+            Create meditation guidance that:
+            - Acknowledges their specific recent emotional experiences
+            - Provides comfort and validation for challenges they've faced
+            - Celebrates positive moments they've had
+            - Guides them toward emotional balance and self-compassion
+            - Uses their actual mood words/notes when appropriate
+            
+            Respond with JSON format:
+            {
+              "title": "Brief personalized step title reflecting their journey",
+              "guidance": "Deeply personalized 2-3 minute meditation guidance that references their specific mood patterns, validates their experiences, and guides them toward healing and balance. Start with breathing/relaxation but weave in their emotional journey."
+            }
+            """.trimIndent()
         } else {
-            val context = PromptContext(
-                additionalContext = mapOf(
-                    "step" to (stepIndex + 1),
-                    "totalSteps" to config.totalSteps,
-                    "duration" to config.stepDuration,
-                    "focusArea" to config.focus,
-                    "stepType" to stepType
-                )
-            )
-            PromptBuilder.build(PromptType.MEDITATION_GENERATION, context)
+            """
+            Create a ${stepType} meditation step for someone focusing on: ${config.focus}
+            Step ${stepIndex + 1} of ${config.totalSteps}
+            Duration: ${config.stepDuration} seconds
+            
+            Respond with JSON format:
+            {
+              "title": "Brief step title",
+              "guidance": "2-3 minute meditation guidance that starts immediately with breathing or relaxation instructions"
+            }
+            """.trimIndent()
         }
     }
 

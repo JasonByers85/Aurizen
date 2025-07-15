@@ -26,8 +26,14 @@ enum class PromptType {
     MEDITATION_GENERATION,
     MEDITATION_MOOD_GUIDED,
     FUNCTION_CALLING,
-    TEST_FUNCTION_CALLING
+    TEST_FUNCTION_CALLING,
+    WELLNESS_GUIDANCE
 }
+
+data class FunctionInjection(
+    val keywords: List<String>,
+    val instruction: String
+)
 
 data class PromptContext(
     val userMemories: List<String> = emptyList(),
@@ -35,7 +41,7 @@ data class PromptContext(
     val personalGoals: List<PersonalGoal> = emptyList(),
     val recentTopics: List<String> = emptyList(),
     val currentDate: Date = Date(),
-    val additionalContext: Map<String, Any> = emptyMap()
+    val additionalContext: Map<String, Any> = emptyMap() // Can include "userMessage" for function detection
 )
 
 class PromptBuilder {
@@ -50,6 +56,38 @@ class PromptBuilder {
         // Keyword-based guidelines (was 5 bullet points, now 1 sentence)
         private const val GUIDELINES = "Be: helpful, concise(1-2para), practical, supportive, positive. No diagnoses. Suggest features naturally."
         
+        // Function injection definitions
+        private val MEMORY_FUNCTION = FunctionInjection(
+            keywords = listOf(
+                "always remember", "please remember", "you should always remember",
+                "always keep in mind", "always note that"
+            ),
+            instruction = "\nWhen user wants you to remember something, use: FUNCTION_CALL:STORE_MEMORY:{\"memory\":\"what to remember\"}\nStore the actual information the user wants remembered, not example text.\n"
+        )
+        
+        private val MEDITATION_FUNCTION = FunctionInjection(
+            keywords = listOf(
+                "create meditation", "make meditation", "generate meditation",
+                "meditation for", "meditate on", "guided meditation",
+                "custom meditation", "personalized meditation"
+            ),
+            instruction = "\nWhen user requests meditation creation, use: FUNCTION_CALL:CREATE_MEDITATION:{\"focus\":\"meditation focus area\",\"mood\":\"target mood\",\"duration\":10,\"user_request\":\"original request\"}\nSet focus to what they want to meditate on, mood to desired outcome, duration in minutes.\n"
+        )
+        
+        private fun getGoalFunction(): FunctionInjection {
+            return FunctionInjection(
+                keywords = listOf(
+                    "create goal", "set goal", "add goal", "make goal",
+                    "goal to", "want to achieve", "help me achieve",
+                    "track my progress", "personal goal", "set target",
+                    "daily goal", "daily habit", "every day", "daily routine",
+                    "exercise daily", "meditate daily", "read daily",
+                    "drink water daily", "daily practice"
+                ),
+                instruction = "\nWhen user wants to create a goal, use: FUNCTION_CALL:CREATE_GOAL:{\"title\":\"goal title\",\"category\":\"FITNESS\",\"goal_type\":\"DAILY\",\"target_date\":\"\",\"notes\":\"context\"}\nCategories: HEALTH,FITNESS,MENTAL_WELLNESS,WEIGHT,LEARNING,CAREER,OTHER\nTypes: ONE_TIME (single goals) or DAILY (daily habits)\nUse DAILY for habits like 'exercise daily', 'meditate daily'. Use ONE_TIME for single achievements.\n"
+            )
+        }
+        
         fun build(type: PromptType, context: PromptContext = PromptContext()): String {
             return when (type) {
                 PromptType.QUICK_CHAT -> buildQuickChatPrompt(context)
@@ -60,17 +98,40 @@ class PromptBuilder {
                 PromptType.MEDITATION_MOOD_GUIDED -> buildMoodGuidedMeditationPrompt(context)
                 PromptType.FUNCTION_CALLING -> buildFunctionCallingPrompt()
                 PromptType.TEST_FUNCTION_CALLING -> buildTestFunctionCallingPrompt()
+                PromptType.WELLNESS_GUIDANCE -> buildWellnessGuidancePrompt(context)
             }
         }
         
         private fun buildQuickChatPrompt(context: PromptContext): String {
+            val userMessage = context.additionalContext["userMessage"] as? String ?: ""
+            val functions = detectAndInjectFunctions(userMessage)
+            
+            // If we detected functions, use optimized function-only prompt
+            if (functions.isNotEmpty()) {
+                return buildOptimizedFunctionPrompt(context, functions)
+            }
+            
+            // Otherwise use full context prompt
             val ctx = formatCompactContext(context)
             return "AI wellness companion. $GUIDELINES $FEATURES\n${if (ctx.isNotEmpty()) "Context: $ctx" else ""}"
         }
         
         private fun buildTalkPrompt(context: PromptContext): String {
+            val userMessage = context.additionalContext["userMessage"] as? String ?: ""
+            val functions = detectAndInjectFunctions(userMessage)
+            
+            // If we detected functions, use optimized function-only prompt
+            if (functions.isNotEmpty()) {
+                val optimizedPrompt = buildOptimizedFunctionPrompt(context, functions)
+                println("🔧 TALK: Function detected, using optimized prompt (${optimizedPrompt.length} chars)")
+                return optimizedPrompt
+            }
+            
+            // Otherwise use full context prompt
             val mem = context.userMemories.take(3).joinToString("; ")
-            return "$APP_NAME AI. Conversational, friendly, concise. $FEATURES\n${if (mem.isNotEmpty()) "Context: $mem\n" else ""}Be supportive:"
+            val fullPrompt = "$APP_NAME AI. Conversational, friendly, brief chat. $FEATURES\n${if (mem.isNotEmpty()) "Context: $mem\n" else ""}Be supportive:"
+            println("🔧 TALK: No functions, using full prompt (${fullPrompt.length} chars)")
+            return fullPrompt
         }
         
         private fun buildMoodInsightsPrompt(context: PromptContext): String {
@@ -103,11 +164,47 @@ class PromptBuilder {
         }
         
         private fun buildFunctionCallingPrompt(): String {
-            return "Funcs: STORE_MEMORY:{\"memory\":\"\"}, CREATE_MEDITATION:{\"focus\":\"\",\"duration\":10}. Use for memory/meditation requests."
+            // Legacy - now using smart injection
+            return "${MEMORY_FUNCTION.instruction}${MEDITATION_FUNCTION.instruction}Use when requested."
         }
         
         private fun buildTestFunctionCallingPrompt(): String {
             return "Wellness AI w/ functions. ${buildFunctionCallingPrompt()} Use when explicitly requested."
+        }
+        
+        private fun buildWellnessGuidancePrompt(context: PromptContext): String {
+            val wellnessTopic = context.additionalContext["wellnessTopic"] as? String ?: "general wellness"
+            
+            // Only include minimal, relevant context
+            val recentMoods = context.recentMoods.take(5).joinToString(", ") { it.mood }
+            val userMemories = context.userMemories.take(3).joinToString("; ")
+            
+            val moodContext = if (recentMoods.isNotEmpty()) "\nRecent moods: $recentMoods" else ""
+            val memoryContext = if (userMemories.isNotEmpty()) "\nUser context: $userMemories" else ""
+            
+            return """You are a compassionate wellness expert providing evidence-based guidance for: $wellnessTopic
+
+Provide genuine, therapeutic insights and practical strategies. Be specific, actionable, and empathetic. Draw from psychology, mindfulness, cognitive behavioral therapy, and holistic wellness approaches.$moodContext$memoryContext
+
+IMPORTANT:
+- NO app recommendations or digital tools
+- NO function calls or technical features  
+- Focus purely on human wisdom and practical techniques
+- 2-3 focused paragraphs with specific, actionable steps
+- Address the person directly with warmth and understanding
+- Include both immediate relief techniques and longer-term strategies"""
+        }
+        
+        /**
+         * Optimized prompt for when we know a function call is needed
+         * Much smaller and faster than full context prompts
+         */
+        private fun buildOptimizedFunctionPrompt(context: PromptContext, functions: String): String {
+            // Minimal context for function calls
+            val memories = context.userMemories.take(2).joinToString("; ")
+            val memoryContext = if (memories.isNotEmpty()) "\nUser context: $memories" else ""
+            
+            return "$APP_NAME AI. Execute function calls and respond briefly.${functions}${memoryContext}\n\nIMPORTANT: Use the function call format AND respond with only a short confirmation (1-2 sentences max). No code blocks, no technical details."
         }
         
         private fun formatDate(date: Date): String {
@@ -155,6 +252,60 @@ class PromptBuilder {
             }
             
             return parts.joinToString("|")
+        }
+        
+        // Smart function injection based on phrase detection
+        private fun detectAndInjectFunctions(userMessage: String): String {
+            val lowerMessage = userMessage.lowercase().trim()
+            val functions = mutableListOf<String>()
+            val detectedTypes = mutableListOf<String>()
+            
+            // Check for memory-related phrases (must contain "always remember")
+            if (MEMORY_FUNCTION.keywords.any { phrase -> 
+                lowerMessage.contains(phrase.lowercase())
+            }) {
+                functions.add(MEMORY_FUNCTION.instruction)
+                detectedTypes.add("MEMORY")
+            }
+            
+            // Check for meditation-related keywords
+            if (MEDITATION_FUNCTION.keywords.any { keyword -> 
+                lowerMessage.contains(keyword.lowercase())
+            }) {
+                functions.add(MEDITATION_FUNCTION.instruction)
+                detectedTypes.add("MEDITATION")
+            }
+            
+            // Check for goal-related keywords
+            val goalFunction = getGoalFunction()
+            if (goalFunction.keywords.any { keyword -> 
+                lowerMessage.contains(keyword.lowercase())
+            }) {
+                functions.add(goalFunction.instruction)
+                detectedTypes.add("GOAL")
+            }
+            
+            if (detectedTypes.isNotEmpty()) {
+                println("🔍 FUNCTION DETECTION: '$userMessage' -> ${detectedTypes.joinToString(", ")}")
+            } else {
+                println("🔍 FUNCTION DETECTION: '$userMessage' -> NONE")
+            }
+            
+            return if (functions.isNotEmpty()) {
+                functions.joinToString("")
+            } else {
+                ""
+            }
+        }
+        
+        // Debug function to test keyword detection
+        fun testFunctionDetection(userMessage: String): String {
+            val detected = detectAndInjectFunctions(userMessage)
+            return if (detected.isNotEmpty()) {
+                "DETECTED: $detected"
+            } else {
+                "NO FUNCTIONS DETECTED"
+            }
         }
     }
 }

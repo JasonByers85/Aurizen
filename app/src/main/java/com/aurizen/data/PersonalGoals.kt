@@ -7,16 +7,31 @@ import androidx.security.crypto.MasterKeys
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import java.util.*
+import java.text.SimpleDateFormat
 
 data class PersonalGoal(
     val id: String = UUID.randomUUID().toString(),
     val title: String,
     val category: GoalCategory,
+    val goalType: GoalType = GoalType.ONE_TIME,
     val targetDate: Long,
     val createdDate: Long = System.currentTimeMillis(),
     val progress: Float = 0f,
     val notes: String = "",
-    val isCompleted: Boolean = false
+    val isCompleted: Boolean = false,
+    val dailyProgress: DailyProgress = DailyProgress()
+)
+
+enum class GoalType(val displayName: String) {
+    ONE_TIME("One-time Goal"),
+    DAILY("Daily Goal")
+}
+
+data class DailyProgress(
+    val completedDates: MutableSet<String> = mutableSetOf(), // Format: "yyyy-MM-dd"
+    val currentStreak: Int = 0,
+    val longestStreak: Int = 0,
+    val totalDaysCompleted: Int = 0
 )
 
 enum class GoalCategory(val displayName: String, val emoji: String) {
@@ -93,6 +108,94 @@ class PersonalGoalsStorage private constructor(context: Context) {
             isCompleted = progress >= 1f
         )
         saveGoal(updatedGoal)
+    }
+
+    fun markDailyGoalCompleted(id: String, date: String = getCurrentDateString()): Boolean {
+        val goal = getGoalById(id) ?: return false
+        if (goal.goalType != GoalType.DAILY) return false
+
+        val updatedDates = goal.dailyProgress.completedDates.toMutableSet()
+        if (updatedDates.contains(date)) return false // Already completed today
+
+        updatedDates.add(date)
+        val newStreak = calculateCurrentStreak(updatedDates, date)
+        val newLongestStreak = maxOf(goal.dailyProgress.longestStreak, newStreak)
+
+        val updatedProgress = goal.copy(
+            dailyProgress = goal.dailyProgress.copy(
+                completedDates = updatedDates,
+                currentStreak = newStreak,
+                longestStreak = newLongestStreak,
+                totalDaysCompleted = updatedDates.size
+            )
+        )
+        saveGoal(updatedProgress)
+        return true
+    }
+
+    fun markDailyGoalIncomplete(id: String, date: String = getCurrentDateString()): Boolean {
+        val goal = getGoalById(id) ?: return false
+        if (goal.goalType != GoalType.DAILY) return false
+
+        val updatedDates = goal.dailyProgress.completedDates.toMutableSet()
+        if (!updatedDates.contains(date)) return false // Not completed today
+
+        updatedDates.remove(date)
+        val newStreak = calculateCurrentStreak(updatedDates, getCurrentDateString())
+
+        val updatedProgress = goal.copy(
+            dailyProgress = goal.dailyProgress.copy(
+                completedDates = updatedDates,
+                currentStreak = newStreak,
+                totalDaysCompleted = updatedDates.size
+            )
+        )
+        saveGoal(updatedProgress)
+        return true
+    }
+
+    fun isDailyGoalCompletedToday(id: String): Boolean {
+        val goal = getGoalById(id) ?: return false
+        return goal.goalType == GoalType.DAILY && 
+               goal.dailyProgress.completedDates.contains(getCurrentDateString())
+    }
+
+    private fun getCurrentDateString(): String {
+        val calendar = Calendar.getInstance()
+        return String.format("%04d-%02d-%02d", 
+            calendar.get(Calendar.YEAR),
+            calendar.get(Calendar.MONTH) + 1,
+            calendar.get(Calendar.DAY_OF_MONTH)
+        )
+    }
+
+    private fun calculateCurrentStreak(completedDates: Set<String>, fromDate: String): Int {
+        val calendar = Calendar.getInstance()
+        val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        
+        try {
+            calendar.time = dateFormat.parse(fromDate) ?: return 0
+        } catch (e: Exception) {
+            return 0
+        }
+
+        var streak = 0
+        while (true) {
+            val dateString = String.format("%04d-%02d-%02d", 
+                calendar.get(Calendar.YEAR),
+                calendar.get(Calendar.MONTH) + 1,
+                calendar.get(Calendar.DAY_OF_MONTH)
+            )
+            
+            if (completedDates.contains(dateString)) {
+                streak++
+                calendar.add(Calendar.DAY_OF_MONTH, -1)
+            } else {
+                break
+            }
+        }
+        
+        return streak
     }
 
     fun clearAllGoals() {

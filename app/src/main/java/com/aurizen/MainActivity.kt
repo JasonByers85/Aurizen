@@ -131,6 +131,15 @@ class MainActivity : ComponentActivity() {
                                             popUpTo(HOME_SCREEN) { inclusive = false }
                                             launchSingleTop = true
                                         }
+                                    },
+                                    onNavigateToMeditation = { meditationType ->
+                                        navController.navigate("$MEDITATION_SESSION_SCREEN/$meditationType")
+                                    },
+                                    onNavigateToGoals = {
+                                        navController.navigate(PERSONAL_GOALS_SCREEN)
+                                    },
+                                    onNavigateToSettings = {
+                                        navController.navigate(SETTINGS_SCREEN)
                                     }
                                 )
                             }
@@ -246,10 +255,16 @@ class MainActivity : ComponentActivity() {
                             composable(TALK_SCREEN) {
                                 TalkRoute(
                                     onBack = { 
-                                        navController.navigate(HOME_SCREEN) {
-                                            popUpTo(HOME_SCREEN) { inclusive = false }
-                                            launchSingleTop = true
-                                        }
+                                        navController.popBackStack()
+                                    },
+                                    onNavigateToMeditation = { meditationType ->
+                                        navController.navigate("$MEDITATION_SESSION_SCREEN/$meditationType")
+                                    },
+                                    onNavigateToGoals = {
+                                        navController.navigate(PERSONAL_GOALS_SCREEN)
+                                    },
+                                    onNavigateToSettings = {
+                                        navController.navigate(SETTINGS_SCREEN)
                                     }
                                 )
                             }

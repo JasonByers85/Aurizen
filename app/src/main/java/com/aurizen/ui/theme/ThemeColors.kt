@@ -160,6 +160,45 @@ val OceanDarkColorScheme = darkColorScheme(
     outlineVariant = Color(0xFF00BCD4)
 )
 
+// Forest Green Theme - Deep greens and teals
+val ForestGreenLightColorScheme = lightColorScheme(
+    primary = Color(0xFF375846), // Forest green
+    secondary = Color(0xFF355645), // Earthy green
+    tertiary = Color(0xFF385a47), // Deep green
+    background = Color(0xFF283f3f), // Dark teal/green-gray
+    surface = Color(0xFF27403f), // Muted teal
+    onPrimary = Color.White,
+    onSecondary = Color.White,
+    onTertiary = Color.White,
+    onBackground = Color(0xFFE8F5E8),
+    onSurface = Color(0xFFE8F5E8),
+    primaryContainer = Color(0xFF2c453a), // Greenish slate
+    secondaryContainer = Color(0xFF263e3e), // Cool dark teal
+    tertiaryContainer = Color(0xFF3d4f4f), // Slate grey-blue
+    surfaceVariant = Color(0xFF172623), // Very dark green-black
+    outline = Color(0xFF385a47),
+    outlineVariant = Color(0xFF355645)
+)
+
+val ForestGreenDarkColorScheme = darkColorScheme(
+    primary = Color(0xFF375846), // Forest green
+    secondary = Color(0xFF355645), // Earthy green
+    tertiary = Color(0xFF385a47), // Deep green
+    background = Color(0xFF172623), // Very dark green-black
+    surface = Color(0xFF162422), // Near black with green hint
+    onPrimary = Color.White,
+    onSecondary = Color.White,
+    onTertiary = Color.White,
+    onBackground = Color(0xFFE8F5E8),
+    onSurface = Color(0xFFE8F5E8),
+    primaryContainer = Color(0xFF2c453a), // Greenish slate
+    secondaryContainer = Color(0xFF263e3e), // Cool dark teal
+    tertiaryContainer = Color(0xFF3d4f4f), // Slate grey-blue
+    surfaceVariant = Color(0xFF283f3f), // Dark teal/green-gray
+    outline = Color(0xFF27403f),
+    outlineVariant = Color(0xFF355645)
+)
+
 // Sunset Theme - Warm oranges and reds
 val SunsetLightColorScheme = lightColorScheme(
     primary = Color(0xFFFF5722), // Deep orange

@@ -11,6 +11,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -25,9 +26,32 @@ import com.aurizen.core.Model
 import com.aurizen.core.ModelLoadFailException
 import com.aurizen.core.ModelSessionCreateFailException
 import com.aurizen.activities.LoginActivity
+import com.aurizen.ui.theme.ThemeManager
+import com.aurizen.ui.theme.ThemeMode
 import com.aurizen.R
 
 private const val TAG = "LoadingScreen"
+
+@Composable
+private fun shouldUseLightLogo(): Boolean {
+    val context = LocalContext.current
+    val themeManager = remember { ThemeManager.getInstance(context) }
+    val currentTheme by themeManager.getThemeState()
+    val isSystemInDarkTheme = isSystemInDarkTheme()
+    
+    return when (currentTheme) {
+        ThemeMode.LIGHT -> true
+        ThemeMode.DARK -> false
+        ThemeMode.SYSTEM -> !isSystemInDarkTheme
+        ThemeMode.PASTEL -> !isSystemInDarkTheme
+        ThemeMode.NATURE -> !isSystemInDarkTheme
+        ThemeMode.MINIMAL -> !isSystemInDarkTheme
+        ThemeMode.VIBRANT -> !isSystemInDarkTheme
+        ThemeMode.OCEAN -> !isSystemInDarkTheme
+        ThemeMode.SUNSET -> !isSystemInDarkTheme
+        ThemeMode.FOREST_GREEN -> !isSystemInDarkTheme
+    }
+}
 
 @Composable
 internal fun LoadingRoute(
@@ -177,7 +201,9 @@ fun DownloadIndicator(progress: Int, onCancel: () -> Unit) {
     ) {
         // AuriZen Logo
         Image(
-            painter = painterResource(id = R.drawable.aurizen_logo),
+            painter = painterResource(
+                id = if (shouldUseLightLogo()) R.drawable.aurizen_logo_light else R.drawable.aurizen_logo
+            ),
             contentDescription = "AuriZen Logo",
             modifier = Modifier
                 .height(90.dp)
@@ -239,7 +265,9 @@ fun LoadingIndicator() {
     ) {
         // Large AuriZen Logo
         Image(
-            painter = painterResource(id = R.drawable.aurizen_logo),
+            painter = painterResource(
+                id = if (shouldUseLightLogo()) R.drawable.aurizen_logo_light else R.drawable.aurizen_logo
+            ),
             contentDescription = "AuriZen Logo",
             modifier = Modifier
                 .height(110.dp)
@@ -285,7 +313,9 @@ fun ErrorMessage(
     ) {
         // AuriZen Logo
         Image(
-            painter = painterResource(id = R.drawable.aurizen_logo),
+            painter = painterResource(
+                id = if (shouldUseLightLogo()) R.drawable.aurizen_logo_light else R.drawable.aurizen_logo
+            ),
             contentDescription = "AuriZen Logo",
             modifier = Modifier
                 .height(90.dp)

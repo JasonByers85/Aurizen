@@ -115,11 +115,13 @@ class InferenceModel private constructor(context: Context) {
     /**
      * Generate a response for a single prompt with optional audio input
      * Supports both text-only and multimodal (text + audio) interactions
+     * @param preserveContext If true, maintains chat history across calls (for conversations)
      */
     fun generateResponseAsync(
         prompt: String, 
         audioData: ByteArray? = null,
-        progressListener: ProgressListener<String>
+        progressListener: ProgressListener<String>,
+        preserveContext: Boolean = false
     ): ListenableFuture<String> {
         if (!::llmInferenceSession.isInitialized) {
             throw ModelSessionCreateFailException()
@@ -129,8 +131,10 @@ class InferenceModel private constructor(context: Context) {
             throw IllegalStateException("Previous invocation still processing. Wait for done=true.")
         }
 
-        // Reset session for each new query to ensure clean state
-        resetSession()
+        // Only reset session if we don't want to preserve context
+        if (!preserveContext) {
+            resetSession()
+        }
         isProcessing = true
 
         // TODO: Add audio data when 0.10.26+ is available on Maven Central
@@ -157,10 +161,10 @@ class InferenceModel private constructor(context: Context) {
     }
     
     /**
-     * Legacy method for backward compatibility
+     * Legacy method for backward compatibility (single-turn, no context preservation)
      */
     fun generateResponseAsync(prompt: String, progressListener: ProgressListener<String>): ListenableFuture<String> {
-        return generateResponseAsync(prompt, null, progressListener)
+        return generateResponseAsync(prompt, null, progressListener, false)
     }
 
     companion object {

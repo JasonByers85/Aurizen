@@ -7,6 +7,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
@@ -25,6 +26,7 @@ import java.util.*
 import com.aurizen.data.PersonalGoalsStorage
 import com.aurizen.data.PersonalGoal
 import com.aurizen.data.GoalCategory
+import com.aurizen.data.GoalType
 
 @Composable
 internal fun PersonalGoalsRoute(
@@ -43,10 +45,11 @@ internal fun PersonalGoalsRoute(
     PersonalGoalsScreen(
         goals = goals,
         onBack = onBack,
-        onAddGoal = { title, category, targetDate, notes ->
+        onAddGoal = { title, category, goalType, targetDate, notes ->
             val newGoal = PersonalGoal(
                 title = title,
                 category = category,
+                goalType = goalType,
                 targetDate = targetDate,
                 notes = notes
             )
@@ -55,6 +58,10 @@ internal fun PersonalGoalsRoute(
         },
         onUpdateProgress = { goalId, progress ->
             goalsStorage.updateGoalProgress(goalId, progress)
+            goals = goalsStorage.getAllGoals()
+        },
+        onToggleDailyGoal = { goalId ->
+            goalsStorage.markDailyGoalCompleted(goalId)
             goals = goalsStorage.getAllGoals()
         },
         onDeleteGoal = { goalId ->
@@ -67,10 +74,11 @@ internal fun PersonalGoalsRoute(
     if (showAddDialog) {
         AddGoalDialog(
             onDismiss = { showAddDialog = false },
-            onAdd = { title, category, targetDate, notes ->
+            onAdd = { title, category, goalType, targetDate, notes ->
                 val newGoal = PersonalGoal(
                     title = title,
                     category = category,
+                    goalType = goalType,
                     targetDate = targetDate,
                     notes = notes
                 )
@@ -86,8 +94,9 @@ internal fun PersonalGoalsRoute(
 fun PersonalGoalsScreen(
     goals: List<PersonalGoal>,
     onBack: () -> Unit,
-    onAddGoal: (String, GoalCategory, Long, String) -> Unit,
+    onAddGoal: (String, GoalCategory, GoalType, Long, String) -> Unit,
     onUpdateProgress: (String, Float) -> Unit,
+    onToggleDailyGoal: (String) -> Unit,
     onDeleteGoal: (String) -> Unit,
     onShowAddDialog: () -> Unit
 ) {
@@ -174,6 +183,7 @@ fun PersonalGoalsScreen(
                     GoalCard(
                         goal = goal,
                         onUpdateProgress = { progress -> onUpdateProgress(goal.id, progress) },
+                        onToggleDailyGoal = { onToggleDailyGoal(goal.id) },
                         onDelete = { onDeleteGoal(goal.id) }
                     )
                 }
@@ -186,19 +196,23 @@ fun PersonalGoalsScreen(
 private fun GoalCard(
     goal: PersonalGoal,
     onUpdateProgress: (Float) -> Unit,
+    onToggleDailyGoal: () -> Unit,
     onDelete: () -> Unit
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
     val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
     val daysLeft = ((goal.targetDate - System.currentTimeMillis()) / (1000 * 60 * 60 * 24)).toInt()
+    val context = LocalContext.current
+    val goalsStorage = remember { PersonalGoalsStorage.getInstance(context) }
+    val isDailyGoalCompletedToday = remember { goalsStorage.isDailyGoalCompletedToday(goal.id) }
     
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = if (goal.isCompleted) {
-                MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.7f)
-            } else {
-                MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f)
+            containerColor = when {
+                goal.isCompleted -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.7f)
+                goal.goalType == GoalType.DAILY && isDailyGoalCompletedToday -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
+                else -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f)
             }
         )
     ) {
@@ -219,10 +233,38 @@ private fun GoalCard(
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold
                         )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        // Goal type indicator
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (goal.goalType == GoalType.DAILY) {
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                            } else {
+                                MaterialTheme.colorScheme.secondary.copy(alpha = 0.2f)
+                            }
+                        ) {
+                            Text(
+                                text = if (goal.goalType == GoalType.DAILY) "Daily" else "Goal",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (goal.goalType == GoalType.DAILY) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.secondary
+                                },
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
                     }
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = when {
+                            goal.goalType == GoalType.DAILY -> {
+                                when {
+                                    isDailyGoalCompletedToday -> "✅ Completed today! Streak: ${goal.dailyProgress.currentStreak}"
+                                    goal.dailyProgress.currentStreak > 0 -> "Current streak: ${goal.dailyProgress.currentStreak} days"
+                                    else -> "Start your daily streak!"
+                                }
+                            }
                             goal.isCompleted -> "Completed! 🎉"
                             daysLeft < 0 -> "Overdue by ${-daysLeft} days"
                             daysLeft == 0 -> "Due today!"
@@ -231,6 +273,7 @@ private fun GoalCard(
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = when {
+                            goal.goalType == GoalType.DAILY && isDailyGoalCompletedToday -> MaterialTheme.colorScheme.primary
                             goal.isCompleted -> MaterialTheme.colorScheme.tertiary
                             daysLeft < 0 -> MaterialTheme.colorScheme.error
                             daysLeft <= 7 -> MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
@@ -250,53 +293,107 @@ private fun GoalCard(
             
             Spacer(modifier = Modifier.height(12.dp))
             
-            // Progress bar
-            Column {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = "Progress",
-                        style = MaterialTheme.typography.labelMedium
-                    )
-                    Text(
-                        text = "${(goal.progress * 100).toInt()}%",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold
+            // Progress section
+            if (goal.goalType == GoalType.DAILY) {
+                // Daily goal progress
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Daily Progress",
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                        Text(
+                            text = "${goal.dailyProgress.totalDaysCompleted} days completed",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Current Streak: ${goal.dailyProgress.currentStreak}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "Best Streak: ${goal.dailyProgress.longestStreak}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                    }
+                }
+                
+                if (!isDailyGoalCompletedToday) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    // Daily completion button
+                    Button(
+                        onClick = onToggleDailyGoal,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary
+                        )
+                    ) {
+                        Icon(Icons.Default.Check, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Mark as Done Today")
+                    }
+                }
+            } else {
+                // One-time goal progress
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Progress",
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                        Text(
+                            text = "${(goal.progress * 100).toInt()}%",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    LinearProgressIndicator(
+                        progress = { goal.progress },
+                        modifier = Modifier.fillMaxWidth(),
+                        color = if (goal.isCompleted) {
+                            MaterialTheme.colorScheme.tertiary
+                        } else {
+                            MaterialTheme.colorScheme.primary
+                        }
                     )
                 }
-                Spacer(modifier = Modifier.height(4.dp))
-                LinearProgressIndicator(
-                    progress = { goal.progress },
-                    modifier = Modifier.fillMaxWidth(),
-                    color = if (goal.isCompleted) {
-                        MaterialTheme.colorScheme.tertiary
-                    } else {
-                        MaterialTheme.colorScheme.primary
-                    }
-                )
-            }
-            
-            if (!goal.isCompleted) {
-                Spacer(modifier = Modifier.height(12.dp))
                 
-                // Action buttons
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Progress buttons
-                    listOf(0.25f to "+25%", 0.5f to "+50%", 0.75f to "+75%", 1f to "Complete").forEach { (increment, label) ->
-                        OutlinedButton(
-                            onClick = { 
-                                val newProgress = (goal.progress + increment).coerceAtMost(1f)
-                                onUpdateProgress(newProgress) 
-                            },
-                            modifier = Modifier.weight(1f),
-                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp)
-                        ) {
-                            Text(label, style = MaterialTheme.typography.labelSmall)
+                if (!goal.isCompleted) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    // Action buttons
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Progress buttons
+                        listOf(0.25f to "+25%", 0.5f to "+50%", 0.75f to "+75%", 1f to "Complete").forEach { (increment, label) ->
+                            OutlinedButton(
+                                onClick = { 
+                                    val newProgress = (goal.progress + increment).coerceAtMost(1f)
+                                    onUpdateProgress(newProgress) 
+                                },
+                                modifier = Modifier.weight(1f),
+                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp)
+                            ) {
+                                Text(label, style = MaterialTheme.typography.labelSmall)
+                            }
                         }
                     }
                 }
@@ -341,10 +438,11 @@ private fun GoalCard(
 @Composable
 private fun AddGoalDialog(
     onDismiss: () -> Unit,
-    onAdd: (String, GoalCategory, Long, String) -> Unit
+    onAdd: (String, GoalCategory, GoalType, Long, String) -> Unit
 ) {
     var title by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf(GoalCategory.HEALTH) }
+    var selectedGoalType by remember { mutableStateOf(GoalType.ONE_TIME) }
     var targetDate by remember { mutableStateOf(System.currentTimeMillis() + (30 * 24 * 60 * 60 * 1000L)) }
     var notes by remember { mutableStateOf("") }
     var showDatePicker by remember { mutableStateOf(false) }
@@ -421,12 +519,61 @@ private fun AddGoalDialog(
                 
                 Spacer(modifier = Modifier.height(12.dp))
                 
+                // Goal type dropdown
+                var goalTypeExpanded by remember { mutableStateOf(false) }
+                ExposedDropdownMenuBox(
+                    expanded = goalTypeExpanded,
+                    onExpandedChange = { goalTypeExpanded = !goalTypeExpanded }
+                ) {
+                    OutlinedTextField(
+                        value = selectedGoalType.displayName,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Goal Type") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = goalTypeExpanded) },
+                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = goalTypeExpanded,
+                        onDismissRequest = { goalTypeExpanded = false }
+                    ) {
+                        GoalType.entries.forEach { goalType ->
+                            DropdownMenuItem(
+                                text = { 
+                                    Column {
+                                        Text(goalType.displayName, fontWeight = FontWeight.Medium)
+                                        Text(
+                                            text = if (goalType == GoalType.DAILY) "Track daily habits and build streaks" else "One-time achievements with progress tracking",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                        )
+                                    }
+                                },
+                                onClick = {
+                                    selectedGoalType = goalType
+                                    goalTypeExpanded = false
+                                    // Adjust target date based on goal type
+                                    targetDate = if (goalType == GoalType.DAILY) {
+                                        System.currentTimeMillis() + (30 * 24 * 60 * 60 * 1000L) // 30 days for daily goals
+                                    } else {
+                                        System.currentTimeMillis() + (90 * 24 * 60 * 60 * 1000L) // 90 days for one-time goals
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
                 // Target date
                 OutlinedTextField(
                     value = dateFormat.format(Date(targetDate)),
                     onValueChange = {},
                     readOnly = true,
-                    label = { Text("Target Date") },
+                    label = { 
+                        Text(if (selectedGoalType == GoalType.DAILY) "Track Until Date" else "Target Date") 
+                    },
                     trailingIcon = {
                         IconButton(onClick = { showDatePicker = true }) {
                             Icon(Icons.Default.DateRange, contentDescription = "Select date")
@@ -460,7 +607,7 @@ private fun AddGoalDialog(
                     Button(
                         onClick = {
                             if (title.isNotBlank()) {
-                                onAdd(title, selectedCategory, targetDate, notes)
+                                onAdd(title, selectedCategory, selectedGoalType, targetDate, notes)
                             }
                         },
                         enabled = title.isNotBlank()

@@ -88,6 +88,7 @@ fun AuriZenTheme(
         ThemeMode.VIBRANT -> if (darkTheme) VibrantDarkColorScheme else VibrantLightColorScheme
         ThemeMode.OCEAN -> if (darkTheme) OceanDarkColorScheme else OceanLightColorScheme
         ThemeMode.SUNSET -> if (darkTheme) SunsetDarkColorScheme else SunsetLightColorScheme
+        ThemeMode.FOREST_GREEN -> if (darkTheme) ForestGreenDarkColorScheme else ForestGreenLightColorScheme
     }
     
     val view = LocalView.current
@@ -108,6 +109,7 @@ fun AuriZenTheme(
                 ThemeMode.VIBRANT -> !darkTheme
                 ThemeMode.OCEAN -> !darkTheme
                 ThemeMode.SUNSET -> !darkTheme
+                ThemeMode.FOREST_GREEN -> !darkTheme
                 else -> !darkTheme
             }
             

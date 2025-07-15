@@ -53,6 +53,9 @@ class UnifiedMeditationSessionViewModel(
 ) : ViewModel() {
 
     private val TAG = "UnifiedMeditationVM"
+    
+    // Constants for meditation content to reduce duplication
+    private val STRESS_RELIEF_INTRO = "Welcome to your stress relief meditation. Begin by finding a quiet, comfortable position--whether you're sitting or lying down. Allow your body to settle and your hands to rest easily. Gently close your eyes. Bring your attention inward as you begin to breathe deeply. Inhale slowly through your nose, feeling your lungs fill up completely. Pause for a moment at the top of the breath, and then exhale gently through your mouth, releasing any tension. Let each breath invite a deeper sense of relaxation and presence."
 
     // Core session state
     private val _sessionState = MutableStateFlow(UnifiedMeditationSessionState.PREPARING)
@@ -110,7 +113,7 @@ class UnifiedMeditationSessionViewModel(
     private var isPlayingSentences: Boolean = false
 
     // Streaming generation support
-    private var streamingBuffer: String = ""
+    private val streamingBuffer: StringBuilder = StringBuilder()
     private var streamingTitle: String = ""
     private var streamingGuidance: String = ""
     private var isStreamingActive: Boolean = false
@@ -146,6 +149,30 @@ class UnifiedMeditationSessionViewModel(
         initializeSession()
     }
 
+    // Helper function for consistent error handling
+    private suspend fun handleError(message: String, canRetry: Boolean = false) {
+        withContext(Dispatchers.Main) {
+            _generationStatus.value = MeditationGenerationStatus.Error(message)
+            Log.e(TAG, "Session error: $message")
+        }
+    }
+
+    // Helper function for consistent progress updates
+    private fun updateProgress(
+        stepIndex: Int,
+        totalSteps: Int,
+        timeRemaining: Int,
+        totalTimeRemaining: Int,
+        isGenerating: Boolean,
+        status: String,
+        sessionState: UnifiedMeditationSessionState
+    ) {
+        _progress.value = UnifiedMeditationProgress(
+            stepIndex, totalSteps, timeRemaining, totalTimeRemaining,
+            isGenerating, status, sessionState
+        )
+    }
+
     private fun initializeSession() {
         viewModelScope.launch {
             try {
@@ -167,9 +194,7 @@ class UnifiedMeditationSessionViewModel(
 
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to initialize session", e)
-                _generationStatus.value = MeditationGenerationStatus.Error(
-                    "Failed to initialize meditation session: ${e.message}"
-                )
+                handleError("Failed to initialize meditation session: ${e.message}")
             }
         }
     }
@@ -201,11 +226,7 @@ class UnifiedMeditationSessionViewModel(
         // Load configuration immediately  
         val config = loadCustomMeditationConfig()
         if (config == null) {
-            withContext(Dispatchers.Main) {
-                _generationStatus.value = MeditationGenerationStatus.Error(
-                    "Custom meditation configuration not found"
-                )
-            }
+            handleError("Custom meditation configuration not found")
             return
         }
 
@@ -238,9 +259,7 @@ class UnifiedMeditationSessionViewModel(
         // Load predefined meditation steps
         val steps = getMeditationSteps(meditationType)
         if (steps.isEmpty()) {
-            _generationStatus.value = MeditationGenerationStatus.Error(
-                "No meditation steps found for type: $meditationType"
-            )
+            handleError("No meditation steps found for type: $meditationType")
             return
         }
 
@@ -442,7 +461,7 @@ class UnifiedMeditationSessionViewModel(
                 _generationStatus.value = MeditationGenerationStatus.Generating(0, 0.0f)
                 isStreamingActive = true
                 hasStreamingStarted = false
-                streamingBuffer = ""
+                streamingBuffer.clear()
                 streamingTitle = ""
                 streamingGuidance = ""
                 currentSentences.clear()
@@ -504,7 +523,7 @@ class UnifiedMeditationSessionViewModel(
         config: UnifiedMeditationConfig,
         stepIndex: Int
     ) {
-        streamingBuffer += partial
+        streamingBuffer.append(partial)
         Log.d(TAG, "🌊 Received ${partial.length} chars, buffer now ${streamingBuffer.length} chars")
 
         // Try to extract title and guidance progressively
@@ -664,7 +683,7 @@ class UnifiedMeditationSessionViewModel(
         isStreamingActive = false
 
         // Create final step with all content
-        val finalStep = parseCustomMeditationStep(streamingBuffer, stepIndex, config.stepDuration)
+        val finalStep = parseCustomMeditationStep(streamingBuffer.toString(), stepIndex, config.stepDuration)
 
         if (hasStreamingStarted && unifiedSteps.isNotEmpty()) {
             // Update existing step
@@ -957,7 +976,7 @@ class UnifiedMeditationSessionViewModel(
         // Reset streaming state
         isStreamingActive = false
         hasStreamingStarted = false
-        streamingBuffer = ""
+        streamingBuffer.clear()
         streamingTitle = ""
         streamingGuidance = ""
 

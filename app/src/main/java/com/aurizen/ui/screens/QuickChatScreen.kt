@@ -1,5 +1,6 @@
 package com.aurizen.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -211,25 +212,30 @@ fun QuickChatScreen(
                 )
             }
 
-            // Professional help disclaimer
-            ProfessionalHelpDisclaimer()
-
-            // Extra space to ensure input area is visible
-            Spacer(modifier = Modifier.height(60.dp))
+            // Extra space to ensure input area is visible when shown
+            Spacer(modifier = Modifier.height(if (isInputEnabled) 80.dp else 16.dp))
         }
 
-        // Compact context input area - Fixed at bottom
-        if (isInputEnabled) {
-            CompactContextInput(
-                userInput = userInput,
-                onInputChange = { userInput = it },
-                onSend = { input ->
-                    if (input.isNotBlank()) {
-                        onSendMessage("Additional context: $input")
-                        userInput = ""
+        // Fixed bottom area
+        Column(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            // Professional help disclaimer - Fixed at bottom
+            ProfessionalHelpDisclaimer()
+            
+            // Compact context input area - Fixed at bottom
+            if (isInputEnabled) {
+                CompactContextInput(
+                    userInput = userInput,
+                    onInputChange = { userInput = it },
+                    onSend = { input ->
+                        if (input.isNotBlank()) {
+                            onSendMessage("Additional context: $input")
+                            userInput = ""
+                        }
                     }
-                }
-            )
+                )
+            }
         }
     }
 }
@@ -291,11 +297,11 @@ fun WellnessCategoryCards(onTopicSelected: (String) -> Unit) {
     var expandedCategory by remember { mutableStateOf<WellnessCategory?>(null) }
 
     Column(
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
             text = "Select wellness category:",
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.primary
         )
@@ -325,23 +331,23 @@ fun WellnessCategoryCard(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
-        shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column {
-            // Category header
+            // Category header - more compact
             Surface(
                 onClick = onCategoryClick,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(20.dp),
+                    .padding(12.dp),
                 color = category.color.copy(alpha = 0.08f),
-                shape = RoundedCornerShape(16.dp)
+                shape = RoundedCornerShape(10.dp)
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .padding(12.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -349,9 +355,9 @@ fun WellnessCategoryCard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Surface(
-                            shape = RoundedCornerShape(12.dp),
+                            shape = RoundedCornerShape(8.dp),
                             color = category.color.copy(alpha = 0.15f),
-                            modifier = Modifier.size(48.dp)
+                            modifier = Modifier.size(32.dp)
                         ) {
                             Box(
                                 contentAlignment = Alignment.Center,
@@ -361,22 +367,22 @@ fun WellnessCategoryCard(
                                     imageVector = category.icon,
                                     contentDescription = null,
                                     tint = category.color,
-                                    modifier = Modifier.size(24.dp)
+                                    modifier = Modifier.size(18.dp)
                                 )
                             }
                         }
-                        Spacer(modifier = Modifier.width(16.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
                         Text(
                             text = category.title,
-                            style = MaterialTheme.typography.titleMedium,
+                            style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                     }
                     Surface(
-                        shape = RoundedCornerShape(8.dp),
+                        shape = RoundedCornerShape(6.dp),
                         color = category.color.copy(alpha = 0.12f),
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier.size(24.dp)
                     ) {
                         Box(
                             contentAlignment = Alignment.Center,
@@ -386,18 +392,18 @@ fun WellnessCategoryCard(
                                 imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                                 contentDescription = if (isExpanded) "Collapse" else "Expand",
                                 tint = category.color,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(16.dp)
                             )
                         }
                     }
                 }
             }
 
-            // Expanded items
+            // Expanded items - more compact
             if (isExpanded) {
                 Column(
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     category.items.forEach { item ->
                         WellnessItemButton(
@@ -422,18 +428,18 @@ fun WellnessItemButton(
         onClick = { onTopicSelected(item.prompt) },
         modifier = Modifier.fillMaxWidth(),
         color = categoryColor.copy(alpha = 0.05f),
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(8.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
-                shape = RoundedCornerShape(8.dp),
+                shape = RoundedCornerShape(6.dp),
                 color = categoryColor.copy(alpha = 0.15f),
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(28.dp)
             ) {
                 Box(
                     contentAlignment = Alignment.Center,
@@ -441,14 +447,14 @@ fun WellnessItemButton(
                 ) {
                     Text(
                         text = item.emoji,
-                        style = MaterialTheme.typography.bodyLarge
+                        style = MaterialTheme.typography.bodySmall
                     )
                 }
             }
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(10.dp))
             Text(
                 text = item.title,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodySmall,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurface
             )
@@ -691,30 +697,32 @@ fun EnhancedFunctionCallResultCard(
 @Composable
 fun ProfessionalHelpDisclaimer() {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
         ),
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(8.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 imageVector = Icons.Default.Info,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onErrorContainer,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(16.dp)
             )
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = "If you're experiencing serious mental health concerns, please reach out to a mental health professional. Seeking help is a sign of strength, not weakness.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onErrorContainer,
-                lineHeight = 18.sp
+                lineHeight = 16.sp
             )
         }
     }

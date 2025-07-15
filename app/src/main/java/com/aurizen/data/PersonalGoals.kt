@@ -13,14 +13,17 @@ data class PersonalGoal(
     val id: String = UUID.randomUUID().toString(),
     val title: String,
     val category: GoalCategory,
-    val goalType: GoalType = GoalType.ONE_TIME,
+    val goalType: GoalType? = null,
     val targetDate: Long,
     val createdDate: Long = System.currentTimeMillis(),
     val progress: Float = 0f,
     val notes: String = "",
     val isCompleted: Boolean = false,
-    val dailyProgress: DailyProgress = DailyProgress()
-)
+    val dailyProgress: DailyProgress? = null
+) {
+    fun getEffectiveGoalType(): GoalType = goalType ?: GoalType.ONE_TIME
+    fun getEffectiveDailyProgress(): DailyProgress = dailyProgress ?: DailyProgress()
+}
 
 enum class GoalType(val displayName: String) {
     ONE_TIME("One-time Goal"),
@@ -112,17 +115,18 @@ class PersonalGoalsStorage private constructor(context: Context) {
 
     fun markDailyGoalCompleted(id: String, date: String = getCurrentDateString()): Boolean {
         val goal = getGoalById(id) ?: return false
-        if (goal.goalType != GoalType.DAILY) return false
+        if (goal.getEffectiveGoalType() != GoalType.DAILY) return false
 
-        val updatedDates = goal.dailyProgress.completedDates.toMutableSet()
+        val currentDailyProgress = goal.getEffectiveDailyProgress()
+        val updatedDates = currentDailyProgress.completedDates.toMutableSet()
         if (updatedDates.contains(date)) return false // Already completed today
 
         updatedDates.add(date)
         val newStreak = calculateCurrentStreak(updatedDates, date)
-        val newLongestStreak = maxOf(goal.dailyProgress.longestStreak, newStreak)
+        val newLongestStreak = maxOf(currentDailyProgress.longestStreak, newStreak)
 
         val updatedProgress = goal.copy(
-            dailyProgress = goal.dailyProgress.copy(
+            dailyProgress = DailyProgress(
                 completedDates = updatedDates,
                 currentStreak = newStreak,
                 longestStreak = newLongestStreak,
@@ -135,18 +139,20 @@ class PersonalGoalsStorage private constructor(context: Context) {
 
     fun markDailyGoalIncomplete(id: String, date: String = getCurrentDateString()): Boolean {
         val goal = getGoalById(id) ?: return false
-        if (goal.goalType != GoalType.DAILY) return false
+        if (goal.getEffectiveGoalType() != GoalType.DAILY) return false
 
-        val updatedDates = goal.dailyProgress.completedDates.toMutableSet()
+        val currentDailyProgress = goal.getEffectiveDailyProgress()
+        val updatedDates = currentDailyProgress.completedDates.toMutableSet()
         if (!updatedDates.contains(date)) return false // Not completed today
 
         updatedDates.remove(date)
         val newStreak = calculateCurrentStreak(updatedDates, getCurrentDateString())
 
         val updatedProgress = goal.copy(
-            dailyProgress = goal.dailyProgress.copy(
+            dailyProgress = DailyProgress(
                 completedDates = updatedDates,
                 currentStreak = newStreak,
+                longestStreak = currentDailyProgress.longestStreak,
                 totalDaysCompleted = updatedDates.size
             )
         )
@@ -156,8 +162,8 @@ class PersonalGoalsStorage private constructor(context: Context) {
 
     fun isDailyGoalCompletedToday(id: String): Boolean {
         val goal = getGoalById(id) ?: return false
-        return goal.goalType == GoalType.DAILY && 
-               goal.dailyProgress.completedDates.contains(getCurrentDateString())
+        return goal.getEffectiveGoalType() == GoalType.DAILY && 
+               goal.getEffectiveDailyProgress().completedDates.contains(getCurrentDateString())
     }
 
     private fun getCurrentDateString(): String {

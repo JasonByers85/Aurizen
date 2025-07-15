@@ -29,6 +29,12 @@ import com.aurizen.data.BinauralTone
 import com.aurizen.data.MeditationStep
 import com.aurizen.data.AudioSettings
 import com.aurizen.data.toUnified
+import com.aurizen.data.EnhancedMeditationStep
+import com.aurizen.data.MeditationSegment
+import com.aurizen.data.MeditationSegmentType
+import com.aurizen.data.MeditationSegmentProgress
+import com.aurizen.data.MeditationPacingPreferences
+import com.aurizen.core.MeditationTimingController
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -127,6 +133,13 @@ class UnifiedMeditationSessionViewModel(
     private val unifiedSteps = mutableListOf<UnifiedMeditationStep>()
     private var currentStepIndex = 0
     private var totalSessionDuration = 0
+    
+    // Enhanced pacing system
+    private var enhancedSteps: List<EnhancedMeditationStep> = emptyList()
+    private var currentSegmentIndex = 0
+    private var timingController: MeditationTimingController? = null
+    private var pacingPreferences: MeditationPacingPreferences? = null
+    private var currentSegment: MeditationSegment? = null
 
     init {
         Log.d(TAG, "🚀 Creating unified meditation session for: $meditationType")
@@ -136,6 +149,10 @@ class UnifiedMeditationSessionViewModel(
     private fun initializeSession() {
         viewModelScope.launch {
             try {
+                // Initialize pacing system
+                pacingPreferences = meditationSettings.getPacingPreferences()
+                timingController = MeditationTimingController(pacingPreferences!!)
+                
                 // Determine meditation type
                 when {
                     meditationType.startsWith("custom:") -> setupCustomMeditation()
@@ -153,6 +170,27 @@ class UnifiedMeditationSessionViewModel(
                 _generationStatus.value = MeditationGenerationStatus.Error(
                     "Failed to initialize meditation session: ${e.message}"
                 )
+            }
+        }
+    }
+
+    private fun createEnhancedSteps() {
+        if (unifiedSteps.isEmpty()) return
+        
+        timingController?.let { controller ->
+            sessionConfig?.let { config ->
+                Log.d(TAG, "🎯 Creating enhanced steps with pacing system")
+                Log.d(TAG, "📝 Pacing preferences: ${pacingPreferences}")
+                enhancedSteps = controller.createEnhancedMeditation(unifiedSteps, config)
+                
+                // Log pacing statistics
+                val stats = controller.getMeditationStats(enhancedSteps)
+                Log.d(TAG, "📊 Pacing stats: ${stats.totalGentleCues} gentle cues, ${(stats.practiceToSilenceRatio * 100).toInt()}% practice time")
+                Log.d(TAG, "🔧 Enhanced steps created: ${enhancedSteps.size} steps, ${enhancedSteps.sumOf { it.segments.size }} total segments")
+                
+                // Reset segment tracking
+                currentSegmentIndex = 0
+                currentSegment = enhancedSteps.firstOrNull()?.segments?.firstOrNull()
             }
         }
     }
@@ -222,6 +260,9 @@ class UnifiedMeditationSessionViewModel(
             moodContext = ""
         )
 
+        // Create enhanced steps with pacing system
+        createEnhancedSteps()
+
         // Set first step and progress
         _currentStep.value = unifiedSteps[0]
         _progress.value = UnifiedMeditationProgress(
@@ -234,8 +275,12 @@ class UnifiedMeditationSessionViewModel(
             sessionState = UnifiedMeditationSessionState.READY
         )
 
-        // Always show the guidance text
-        _currentSentence.value = unifiedSteps[0].guidance
+        // Show first sentence of guidance text instead of full paragraph
+        val firstSentence = splitIntoSentences(unifiedSteps[0].guidance).firstOrNull() ?: unifiedSteps[0].guidance
+        _currentSentence.value = firstSentence
+        Log.d(TAG, "Set initial first sentence (regular): '$firstSentence'")
+        Log.d(TAG, "Full guidance was: '${unifiedSteps[0].guidance}'")
+        Log.d(TAG, "Current sentence StateFlow value: '${_currentSentence.value}'")
 
         _sessionState.value = UnifiedMeditationSessionState.READY
         _generationStatus.value = MeditationGenerationStatus.Idle
@@ -310,6 +355,9 @@ class UnifiedMeditationSessionViewModel(
             moodContext = ""
         )
 
+        // Create enhanced steps with pacing system
+        createEnhancedSteps()
+
         // Set first step and ready state
         _currentStep.value = unifiedSteps[0]
         _progress.value = UnifiedMeditationProgress(
@@ -322,8 +370,10 @@ class UnifiedMeditationSessionViewModel(
             sessionState = UnifiedMeditationSessionState.READY
         )
 
-        // Always show the guidance text
-        _currentSentence.value = unifiedSteps[0].guidance
+        // Show first sentence of guidance text instead of full paragraph
+        val firstSentence = splitIntoSentences(unifiedSteps[0].guidance).firstOrNull() ?: unifiedSteps[0].guidance
+        _currentSentence.value = firstSentence
+        Log.d(TAG, "Set initial first sentence (saved): '$firstSentence'")
 
         _sessionState.value = UnifiedMeditationSessionState.READY
         _generationStatus.value = MeditationGenerationStatus.Idle
@@ -762,7 +812,6 @@ class UnifiedMeditationSessionViewModel(
     private fun startSession() {
         Log.d(TAG, "▶️ Starting session")
         _isPlaying.value = true
-        _sessionState.value = UnifiedMeditationSessionState.ACTIVE
 
         // Start audio
         val settings = _audioSettings.value
@@ -783,6 +832,9 @@ class UnifiedMeditationSessionViewModel(
         if (settings.ttsEnabled && _currentStep.value != null) {
             speakGuidance(_currentStep.value!!.guidance)
         }
+
+        // Change session state to ACTIVE after setting up the content
+        _sessionState.value = UnifiedMeditationSessionState.ACTIVE
 
         // Start timer
         startTimer()
@@ -930,36 +982,151 @@ class UnifiedMeditationSessionViewModel(
         )
 
         timerJob?.cancel()
-        timerJob = viewModelScope.launch {
-            while (_isPlaying.value && _progress.value.timeRemainingInStep > 0) {
-                delay(1000)
-                if (_isPlaying.value) {
-                    val currentProgress = _progress.value
-                    val newTimeInStep = (currentProgress.timeRemainingInStep - 1).coerceAtLeast(0)
-                    val newTotalTime = (currentProgress.totalTimeRemaining - 1).coerceAtLeast(0)
+        
+        // Use enhanced segment timer if available
+        if (enhancedSteps.isNotEmpty()) {
+            Log.d(TAG, "🎯 Starting enhanced segment timer (${enhancedSteps.size} steps)")
+            startSegmentTimer()
+        } else {
+            Log.d(TAG, "⏰ Using traditional timer (enhanced steps empty)")
+            // Original timer logic
+            timerJob = viewModelScope.launch {
+                while (_isPlaying.value && _progress.value.timeRemainingInStep > 0) {
+                    delay(1000)
+                    if (_isPlaying.value) {
+                        val currentProgress = _progress.value
+                        val newTimeInStep = (currentProgress.timeRemainingInStep - 1).coerceAtLeast(0)
+                        val newTotalTime = (currentProgress.totalTimeRemaining - 1).coerceAtLeast(0)
 
-                    _progress.value = currentProgress.copy(
-                        timeRemainingInStep = newTimeInStep,
-                        totalTimeRemaining = newTotalTime
-                    )
+                        _progress.value = currentProgress.copy(
+                            timeRemainingInStep = newTimeInStep,
+                            totalTimeRemaining = newTotalTime
+                        )
 
-                    // For custom meditations, start generating next step when 60 seconds remaining
-                    if (sessionConfig?.isCustomGenerated == true && newTimeInStep == 60) {
-                        triggerNextStepGeneration()
-                    }
+                        // For custom meditations, start generating next step when 60 seconds remaining
+                        if (sessionConfig?.isCustomGenerated == true && newTimeInStep == 60) {
+                            triggerNextStepGeneration()
+                        }
 
-                    // Move to next step only when timer actually reaches 0
-                    if (newTimeInStep == 0) {
-                        Log.d(TAG, "⏰ Step timer reached 0, moving to next step")
-                        moveToNextStep()
-                        break // Exit the loop to prevent further execution
+                        // Move to next step only when timer actually reaches 0
+                        if (newTimeInStep == 0) {
+                            Log.d(TAG, "⏰ Step timer reached 0, moving to next step")
+                            moveToNextStep()
+                            break // Exit the loop to prevent further execution
+                        }
                     }
                 }
+                Log.d(
+                    TAG,
+                    "⏰ Timer loop ended (playing: ${_isPlaying.value}, timeLeft: ${_progress.value.timeRemainingInStep})"
+                )
             }
-            Log.d(
-                TAG,
-                "⏰ Timer loop ended (playing: ${_isPlaying.value}, timeLeft: ${_progress.value.timeRemainingInStep})"
+        }
+    }
+
+    private fun startSegmentTimer() {
+        timingController?.let { controller ->
+            val nextSegment = controller.getNextSegment(enhancedSteps, currentStepIndex, currentSegmentIndex)
+            if (nextSegment == null) {
+                Log.d(TAG, "⏰ No more segments - session complete")
+                _sessionState.value = UnifiedMeditationSessionState.COMPLETED
+                return
+            }
+
+            currentSegment = nextSegment
+            val segmentDuration = nextSegment.duration
+            Log.d(TAG, "⏰ Starting segment timer: ${nextSegment.type} for ${segmentDuration}s")
+
+            // Handle segment-specific behavior
+            when (nextSegment.type) {
+                MeditationSegmentType.INSTRUCTION, 
+                MeditationSegmentType.GENTLE_CUE, 
+                MeditationSegmentType.TRANSITION -> {
+                    // Speak the content
+                    if (_audioSettings.value.ttsEnabled && nextSegment.content.isNotBlank()) {
+                        speakGuidance(nextSegment.content)
+                    }
+                    // speakGuidance() already handles setting the first sentence for UI display
+                }
+                MeditationSegmentType.PRACTICE,
+                MeditationSegmentType.REFLECTION,
+                MeditationSegmentType.BREATHING_PAUSE -> {
+                    // Silent practice - keep the last sentence displayed
+                    // Don't clear it, let the user read what was just spoken
+                    Log.d(TAG, "Silent segment: keeping last sentence visible")
+                }
+            }
+
+            // Apply segment-specific volume
+            audioManager.setTtsVolume(nextSegment.volumeLevel)
+
+            // Start segment countdown
+            timerJob = viewModelScope.launch {
+                var timeRemaining = segmentDuration
+                
+                while (_isPlaying.value && timeRemaining > 0) {
+                    delay(1000)
+                    if (_isPlaying.value) {
+                        timeRemaining--
+                        updateSegmentProgress(timeRemaining)
+                    }
+                }
+
+                if (_isPlaying.value && timeRemaining == 0) {
+                    moveToNextSegment()
+                }
+            }
+        }
+    }
+
+    private fun updateSegmentProgress(timeRemainingInSegment: Int) {
+        timingController?.let { controller ->
+            val segmentProgress = controller.calculateProgress(
+                enhancedSteps,
+                currentStepIndex,
+                currentSegmentIndex,
+                timeRemainingInSegment
             )
+
+            // Update the main progress state
+            _progress.value = UnifiedMeditationProgress(
+                currentStepIndex = segmentProgress.currentStepIndex,
+                totalSteps = segmentProgress.totalSteps,
+                timeRemainingInStep = segmentProgress.timeRemainingInStep,
+                totalTimeRemaining = segmentProgress.totalTimeRemaining,
+                isGenerating = false,
+                generationStatus = "",
+                sessionState = segmentProgress.sessionState
+            )
+        }
+    }
+
+    private fun moveToNextSegment() {
+        timingController?.let { controller ->
+            val (newStepIndex, newSegmentIndex) = controller.moveToNextSegment(
+                enhancedSteps,
+                currentStepIndex,
+                currentSegmentIndex
+            )
+
+            if (controller.isSessionComplete(enhancedSteps, newStepIndex, newSegmentIndex)) {
+                Log.d(TAG, "✅ Enhanced meditation session complete")
+                _sessionState.value = UnifiedMeditationSessionState.COMPLETED
+                return
+            }
+
+            // Update indices
+            val oldStepIndex = currentStepIndex
+            currentStepIndex = newStepIndex
+            currentSegmentIndex = newSegmentIndex
+
+            // Update current step if we moved to a new step
+            if (oldStepIndex != newStepIndex && newStepIndex < unifiedSteps.size) {
+                _currentStep.value = unifiedSteps[newStepIndex]
+            }
+
+            // Continue with next segment
+            startSegmentTimer()
         }
     }
 
@@ -996,16 +1163,20 @@ class UnifiedMeditationSessionViewModel(
                     timeRemainingInStep = nextStep.durationSeconds
                 )
 
-                // Always show the guidance text
-                _currentSentence.value = nextStep.guidance
+                // Only set guidance text if NOT using enhanced pacing system
+                if (enhancedSteps.isEmpty()) {
+                    val firstSentence = splitIntoSentences(nextStep.guidance).firstOrNull() ?: nextStep.guidance
+                    _currentSentence.value = firstSentence
+
+                    // Speak new step guidance
+                    if (_audioSettings.value.ttsEnabled && _isPlaying.value) {
+                        speakGuidance(nextStep.guidance)
+                    }
+                }
+                // If using enhanced system, let segments handle text display and speech
 
                 // Restart timer for new step
                 startTimer()
-
-                // Speak new step guidance
-                if (_audioSettings.value.ttsEnabled && _isPlaying.value) {
-                    speakGuidance(nextStep.guidance)
-                }
             }
         } else {
             // Wait for custom step generation
@@ -1427,9 +1598,12 @@ class UnifiedMeditationSessionViewModel(
             textToSpeech?.stop()
         }
 
-        // Always show the guidance text regardless of TTS settings
-        _currentStep.value?.let { step ->
-            _currentSentence.value = step.guidance
+        // Only show guidance text if NOT using enhanced pacing system
+        if (enhancedSteps.isEmpty()) {
+            _currentStep.value?.let { step ->
+                val firstSentence = splitIntoSentences(step.guidance).firstOrNull() ?: step.guidance
+                _currentSentence.value = firstSentence
+            }
         }
     }
 
@@ -1562,6 +1736,24 @@ class UnifiedMeditationSessionViewModel(
     }
 
     private fun speakGuidance(text: String) {
+        if (text.isNotEmpty()) {
+            // Always set the first sentence for display, regardless of TTS status
+            val cleanText = text.replace(Regex("\\*+"), "")
+                .replace(Regex("#+"), "")
+                .replace("\\n", " ")
+                .trim()
+
+            val sentences = splitIntoSentences(cleanText)
+            Log.d(TAG, "Split text into ${sentences.size} sentences")
+            sentences.forEachIndexed { index, sentence ->
+                Log.d(TAG, "Sentence $index: '$sentence'")
+            }
+            if (sentences.isNotEmpty()) {
+                _currentSentence.value = sentences[0]
+                Log.d(TAG, "Set first sentence (always): '${sentences[0]}'")
+            }
+        }
+
         if (_audioSettings.value.ttsEnabled && isTtsReady && text.isNotEmpty()) {
             // Clean and prepare text
             val cleanText = text.replace(Regex("\\*+"), "")
@@ -1578,16 +1770,86 @@ class UnifiedMeditationSessionViewModel(
 
             Log.d(TAG, "Starting sentence-by-sentence TTS: ${currentSentences.size} sentences")
 
+            // Immediately show first sentence before starting TTS
+            if (currentSentences.isNotEmpty()) {
+                _currentSentence.value = currentSentences[0]
+                Log.d(TAG, "Set first sentence in speakGuidance (TTS): '${currentSentences[0]}'")
+                Log.d(TAG, "TTS full text was: '$cleanText'")
+                Log.d(TAG, "TTS split into ${currentSentences.size} sentences")
+            }
+
             // Start speaking from first sentence
             startSentenceBasedTts()
         }
     }
 
     private fun splitIntoSentences(text: String): List<String> {
-        // Split on sentence endings, but keep the punctuation
-        return text.split(Regex("(?<=[.!?])\\s+"))
+        val sentences = mutableListOf<String>()
+
+        // First split on major sentence boundaries
+        val majorSentences = text.split(Regex("(?<=[.!?])\\s+"))
             .map { it.trim() }
             .filter { it.isNotEmpty() }
+
+        // If no major sentences found (no periods, etc.), split on other patterns
+        if (majorSentences.size == 1 && majorSentences[0] == text.trim()) {
+            // No sentence boundaries found, try splitting on other patterns
+            val alternativeSentences = text.split(Regex("(?<=[,;:])\\s+|(?<=---)\\s+|(?<=--)\\s+"))
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+
+            // If still only one chunk, split on line breaks or at reasonable word boundaries
+            if (alternativeSentences.size == 1) {
+                val words = text.split(Regex("\\s+"))
+                if (words.size > 20) {
+                    // Split long paragraphs into chunks of ~10-15 words
+                    val chunks = mutableListOf<String>()
+                    var currentChunk = mutableListOf<String>()
+
+                    for (word in words) {
+                        currentChunk.add(word)
+                        if (currentChunk.size >= 12) {
+                            chunks.add(currentChunk.joinToString(" "))
+                            currentChunk.clear()
+                        }
+                    }
+
+                    if (currentChunk.isNotEmpty()) {
+                        chunks.add(currentChunk.joinToString(" "))
+                    }
+
+                    sentences.addAll(chunks)
+                } else {
+                    sentences.add(text.trim())
+                }
+            } else {
+                sentences.addAll(alternativeSentences)
+            }
+        } else {
+            // Process normally found sentences
+            for (sentence in majorSentences) {
+                val chunks = mutableListOf<String>()
+
+                // Split on commas, semicolons, colons, and dashes while preserving them
+                val parts = sentence.split(Regex("(?<=[,;:])\\s+|(?<=--)\\s+|(?<=---)\\s+"))
+
+                for (part in parts) {
+                    val trimmedPart = part.trim()
+                    if (trimmedPart.isNotEmpty()) {
+                        chunks.add(trimmedPart)
+                    }
+                }
+
+                // If no chunks were created, add the original sentence
+                if (chunks.isEmpty()) {
+                    chunks.add(sentence)
+                }
+
+                sentences.addAll(chunks)
+            }
+        }
+
+        return sentences.filter { it.isNotEmpty() }
     }
 
     private fun startSentenceBasedTts() {
@@ -1656,7 +1918,7 @@ class UnifiedMeditationSessionViewModel(
             .replace("↓", "")
             .replace("…", "...")
             .replace("–", "-")
-            .replace("—", "-")
+            .replace("--", "-")
             .replace(
                 """, "\"")
             .replace(""", "\""
@@ -1675,15 +1937,52 @@ class UnifiedMeditationSessionViewModel(
             .replace(Regex("[\uD83C\uDDE0-\uD83C\uDDFF]"), "") // Flags
             .replace(Regex("[\u2600-\u26FF]"), "") // Misc symbols
             .replace(Regex("[\u2700-\u27BF]"), "") // Dingbats
+            .let { cleanedText ->
+                // Add SSML pauses for better meditation pacing
+                addMeditationPauses(cleanedText)
+            }
             .trim()
+    }
+
+    private fun addMeditationPauses(text: String): String {
+        // Instead of SSML, we'll split text into smaller chunks for natural pauses
+        // This will be handled by the sentence splitting logic
+        return text
+    }
+
+    private fun calculatePauseTime(previousSentence: String): Long {
+        return when {
+            // Longer pause after sentences ending with periods, exclamation marks
+            previousSentence.endsWith(".") || previousSentence.endsWith("!") -> 2000L
+            // Medium pause after questions
+            previousSentence.endsWith("?") -> 1800L
+            // Shorter pause after commas, semicolons, colons
+            previousSentence.endsWith(",") || previousSentence.endsWith(";") || previousSentence.endsWith(":") -> 1000L
+            // Pause after dashes and ellipses
+            previousSentence.endsWith("--") || previousSentence.endsWith("---") || previousSentence.endsWith("...") -> 1200L
+            // Special pause for breathing cues
+            previousSentence.lowercase().contains("breathe") ||
+            previousSentence.lowercase().contains("inhale") ||
+            previousSentence.lowercase().contains("exhale") -> 1500L
+            // Special pause for counting sequences
+            previousSentence.matches(Regex(".*\\d+.*")) -> 1200L
+            // Pause for transition words
+            previousSentence.lowercase().matches(Regex(".*(now|then|next|slowly|gently|softly).*")) -> 1300L
+            // Default pause for other content
+            else -> 1000L
+        }
     }
 
     private fun playNextSentence() {
         currentSentenceIndex++
         if (currentSentenceIndex < currentSentences.size && isPlayingSentences && !ttsIsPaused) {
-            // Small delay between sentences for natural flow
+            // Dynamic pause based on sentence content
             viewModelScope.launch {
-                delay(800) // 800ms pause between sentences
+                val previousSentence = if (currentSentenceIndex > 0) currentSentences[currentSentenceIndex - 1] else ""
+                val pauseTime = calculatePauseTime(previousSentence)
+
+                // Keep the last sentence displayed during pause - don't clear it
+                delay(pauseTime)
                 if (isPlayingSentences && !ttsIsPaused && _isPlaying.value) {
                     playCurrentSentence()
                 }
@@ -1697,6 +1996,19 @@ class UnifiedMeditationSessionViewModel(
             // All sentences completed
             isPlayingSentences = false
             Log.d(TAG, "All sentences completed")
+
+            // Only clear text if we're in enhanced mode AND moving to a silent segment
+            // Otherwise, keep the last sentence displayed
+            if (enhancedSteps.isNotEmpty()) {
+                val currentSegment = timingController?.getCurrentSegmentType(enhancedSteps, currentStepIndex, currentSegmentIndex)
+                if (currentSegment == MeditationSegmentType.PRACTICE ||
+                    currentSegment == MeditationSegmentType.REFLECTION ||
+                    currentSegment == MeditationSegmentType.BREATHING_PAUSE) {
+                    // Only clear when we're actually transitioning to a silent segment
+                    // This will be handled by the segment timer, not here
+                    Log.d(TAG, "Sentences completed, moving to silent segment")
+                }
+            }
         }
     }
 
@@ -1816,21 +2128,21 @@ class UnifiedMeditationSessionViewModel(
                 MeditationStep(
                     "Welcome",
                     "Beginning stress relief meditation",
-                    "Welcome to your stress relief meditation. Begin by finding a quiet, comfortable position—whether you're sitting or lying down. Allow your body to settle and your hands to rest easily. Gently close your eyes. Bring your attention inward as you begin to breathe deeply. Inhale slowly through your nose, feeling your lungs fill up completely. Pause for a moment at the top of the breath, and then exhale gently through your mouth, releasing any tension. Let each breath invite a deeper sense of relaxation and presence.",
+                    "Welcome to your stress relief meditation. Begin by finding a quiet, comfortable position--whether you're sitting or lying down. Allow your body to settle and your hands to rest easily. Gently close your eyes. Bring your attention inward as you begin to breathe deeply. Inhale slowly through your nose, feeling your lungs fill up completely. Pause for a moment at the top of the breath, and then exhale gently through your mouth, releasing any tension. Let each breath invite a deeper sense of relaxation and presence.",
                     stepDuration
                 ),
 
                 MeditationStep(
                     "Body Scan",
                     "Notice areas of tension",
-                    "Bring your awareness to the top of your head. Slowly begin to scan downward, part by part—your scalp, forehead, eyes, jaw. Notice any sensations of tightness or holding. With each breath, gently invite those areas to soften. Continue down your neck and shoulders. Let them drop away from your ears. Move your awareness through your arms, chest, abdomen, and lower back. Finally, scan your legs all the way to your toes. There's no need to change anything—just be present with what is. Observe with a sense of gentle curiosity and kindness.",
+                    "Bring your awareness to the top of your head. Slowly begin to scan downward, part by part--your scalp, forehead, eyes, jaw. Notice any sensations of tightness or holding. With each breath, gently invite those areas to soften. Continue down your neck and shoulders. Let them drop away from your ears. Move your awareness through your arms, chest, abdomen, and lower back. Finally, scan your legs all the way to your toes. There's no need to change anything--just be present with what is. Observe with a sense of gentle curiosity and kindness.",
                     stepDuration
                 ),
 
                 MeditationStep(
                     "Breathing Focus",
                     "Focus on your natural breath",
-                    "Now bring your attention to your breath. Feel the natural rise and fall of your abdomen or chest. Begin to silently count each exhale: one... two... three... up to ten. If your mind wanders, that's okay—simply notice it without judgment and return to the breath, beginning again at one. Let the counting anchor you in this moment. Notice the calming rhythm of your breathing and allow it to become your center. This simple awareness of breath can bring clarity, stillness, and relief.",
+                    "Now bring your attention to your breath. Feel the natural rise and fall of your abdomen or chest. Begin to silently count each exhale: one... two... three... up to ten. If your mind wanders, that's okay--simply notice it without judgment and return to the breath, beginning again at one. Let the counting anchor you in this moment. Notice the calming rhythm of your breathing and allow it to become your center. This simple awareness of breath can bring clarity, stillness, and relief.",
                     stepDuration
                 )
             )
@@ -1840,14 +2152,14 @@ class UnifiedMeditationSessionViewModel(
                 MeditationStep(
                     "Focus Preparation",
                     "Preparing your mind for clarity",
-                    "Sit upright in a position that feels both stable and relaxed. Imagine a gentle thread lifting you from the crown of your head. Close your eyes and take three deep, cleansing breaths—inhaling through your nose and exhaling through your mouth. Let go of the tension with each exhale. Feel the shift as you transition from activity to stillness. With each breath, become more present and awake. Set an intention to be fully here, ready to cultivate mental clarity and focus.",
+                    "Sit upright in a position that feels both stable and relaxed. Imagine a gentle thread lifting you from the crown of your head. Close your eyes and take three deep, cleansing breaths--inhaling through your nose and exhaling through your mouth. Let go of the tension with each exhale. Feel the shift as you transition from activity to stillness. With each breath, become more present and awake. Set an intention to be fully here, ready to cultivate mental clarity and focus.",
                     stepDuration
                 ),
 
                 MeditationStep(
                     "Mindful Awareness",
                     "Cultivate present-moment attention",
-                    "Now bring your attention to your breath. Focus on the subtle sensations at the tip of your nose or the rhythm in your chest. Feel the coolness of each inhale, the warmth of each exhale. Each breath is unique. When thoughts arise—and they will—acknowledge them gently and guide your focus back to the breath. This returning is the heart of mindfulness. It’s not about perfect stillness—it’s about practicing presence, over and over again.",
+                    "Now bring your attention to your breath. Focus on the subtle sensations at the tip of your nose or the rhythm in your chest. Feel the coolness of each inhale, the warmth of each exhale. Each breath is unique. When thoughts arise--and they will--acknowledge them gently and guide your focus back to the breath. This returning is the heart of mindfulness. It’s not about perfect stillness--it’s about practicing presence, over and over again.",
                     stepDuration
                 ),
 
@@ -1863,21 +2175,21 @@ class UnifiedMeditationSessionViewModel(
                 MeditationStep(
                     "Evening Preparation",
                     "Preparing for restful sleep",
-                    "Lie down comfortably, allowing your body to be fully supported by the surface beneath you. Adjust any pillows or blankets to feel as cozy as possible. Gently close your eyes and bring your awareness to the sensation of your body resting. Begin to breathe slowly and softly. With each exhale, imagine releasing the weight of the day—letting go of any thoughts, worries, or physical tension. Allow yourself to fully arrive in this moment of rest and care.",
+                    "Lie down comfortably, allowing your body to be fully supported by the surface beneath you. Adjust any pillows or blankets to feel as cozy as possible. Gently close your eyes and bring your awareness to the sensation of your body resting. Begin to breathe slowly and softly. With each exhale, imagine releasing the weight of the day--letting go of any thoughts, worries, or physical tension. Allow yourself to fully arrive in this moment of rest and care.",
                     stepDuration
                 ),
 
                 MeditationStep(
                     "Progressive Relaxation",
                     "Releasing physical tension",
-                    "Starting at your toes, gently bring your attention to each part of your body. Wiggle or tense your toes, then allow them to relax completely. Move slowly upward—your ankles, calves, knees, and thighs—softening each area as you go. Let your pelvis and hips release, your belly soften, and your chest expand freely with breath. Feel your shoulders drop away from your ears. Relax your arms, hands, neck, and jaw. Soften your eyes and forehead. Feel your entire body melting into comfort and ease.",
+                    "Starting at your toes, gently bring your attention to each part of your body. Wiggle or tense your toes, then allow them to relax completely. Move slowly upward--your ankles, calves, knees, and thighs--softening each area as you go. Let your pelvis and hips release, your belly soften, and your chest expand freely with breath. Feel your shoulders drop away from your ears. Relax your arms, hands, neck, and jaw. Soften your eyes and forehead. Feel your entire body melting into comfort and ease.",
                     stepDuration
                 ),
 
                 MeditationStep(
                     "Peaceful Drift",
                     "Settling into sleep",
-                    "Let your breathing become slow and gentle. Feel your body completely at rest. Allow your thoughts to drift like leaves on a stream—coming and going without needing to follow them. Invite peace to fill your awareness. With each breath, feel yourself sinking deeper into stillness. Let the boundary between wakefulness and sleep begin to blur. Trust this process. You are safe, supported, and gently drifting into the comfort of sleep.",
+                    "Let your breathing become slow and gentle. Feel your body completely at rest. Allow your thoughts to drift like leaves on a stream--coming and going without needing to follow them. Invite peace to fill your awareness. With each breath, feel yourself sinking deeper into stillness. Let the boundary between wakefulness and sleep begin to blur. Trust this process. You are safe, supported, and gently drifting into the comfort of sleep.",
                     stepDuration
                 )
             )
@@ -1932,7 +2244,7 @@ class UnifiedMeditationSessionViewModel(
                     "Settling Deep",
                     "Beginning profound relaxation",
                     """
-                        Find a position where your body feels completely supported—whether lying down or reclining. 
+                        Find a position where your body feels completely supported--whether lying down or reclining. 
                         Let your arms and legs relax. Allow the weight of your body to sink gently into the surface beneath you.
                         
                         Begin to take slower, deeper breaths. With each inhale, imagine drawing in calm and stillness.
@@ -1946,10 +2258,10 @@ class UnifiedMeditationSessionViewModel(
                     "Complete physical relaxation",
                     """
                         Bring awareness to the top of your head. Gently invite it to relax. 
-                        Slowly scan downward—your forehead, eyes, jaw, neck. Let go of any tension as you pass each area.
+                        Slowly scan downward--your forehead, eyes, jaw, neck. Let go of any tension as you pass each area.
                 
                         Move to your shoulders, arms, hands… then your chest, stomach, hips. 
-                        Keep going—down through your legs, all the way to your toes. 
+                        Keep going--down through your legs, all the way to your toes. 
                         Imagine a wave of warmth flowing through you, releasing every tight spot.
                 
                         Notice the shift between holding and letting go. Allow your whole body to surrender into peace.
@@ -1961,7 +2273,7 @@ class UnifiedMeditationSessionViewModel(
                     "Deep inner calm",
                     """
                         As your body rests fully, turn now to your mind. 
-                        Imagine your thoughts as leaves floating gently on a stream—observe them without following.
+                        Imagine your thoughts as leaves floating gently on a stream--observe them without following.
                 
                         With each breath, allow your mind to quiet, like a still pond with no ripples.
                         There is nothing to do, nothing to fix, nothing to change.
@@ -1992,21 +2304,21 @@ class UnifiedMeditationSessionViewModel(
                 MeditationStep(
                     "Present Moment",
                     "Arriving in awareness",
-                    "Close your eyes and take three deep, conscious breaths. With each exhale, let go of any distractions and feel yourself arriving in this moment. Notice the sensation of your breath, the weight of your body, the sounds around you. Remind yourself that you don’t need to be anywhere else. This moment is enough. Feel the aliveness in your body—the gentle pulse of life. Presence begins now, with awareness of this simple, vivid experience.",
+                    "Close your eyes and take three deep, conscious breaths. With each exhale, let go of any distractions and feel yourself arriving in this moment. Notice the sensation of your breath, the weight of your body, the sounds around you. Remind yourself that you don’t need to be anywhere else. This moment is enough. Feel the aliveness in your body--the gentle pulse of life. Presence begins now, with awareness of this simple, vivid experience.",
                     stepDuration
                 ),
 
                 MeditationStep(
                     "Watching Thoughts",
                     "Mindful observation",
-                    "Begin to notice the stream of thoughts in your mind. Watch them arise—memories, plans, judgments—and let them pass like clouds in the sky. Don’t try to push them away. Don’t follow them. Just observe, without getting caught. See how each thought has a beginning, a middle, and an end. Beneath this stream is the quiet space of awareness. The more you watch without reacting, the more peace you uncover. You are not your thoughts—you are the one who observes them.",
+                    "Begin to notice the stream of thoughts in your mind. Watch them arise--memories, plans, judgments--and let them pass like clouds in the sky. Don’t try to push them away. Don’t follow them. Just observe, without getting caught. See how each thought has a beginning, a middle, and an end. Beneath this stream is the quiet space of awareness. The more you watch without reacting, the more peace you uncover. You are not your thoughts--you are the one who observes them.",
                     stepDuration
                 ),
 
                 MeditationStep(
                     "Body Awareness",
                     "Sensing the present",
-                    "Now bring your attention to your body. Notice the sensations of pressure, warmth, or tingling. Feel the breath moving in your chest or abdomen. Sense the energy or stillness within. If your mind drifts, gently return to these sensations—they are your anchor to the now. Stay connected to your body as a home base of presence. Let this awareness deepen. You are here, alive, grounded in your body. Let this sensing be enough.",
+                    "Now bring your attention to your body. Notice the sensations of pressure, warmth, or tingling. Feel the breath moving in your chest or abdomen. Sense the energy or stillness within. If your mind drifts, gently return to these sensations--they are your anchor to the now. Stay connected to your body as a home base of presence. Let this awareness deepen. You are here, alive, grounded in your body. Let this sensing be enough.",
                     stepDuration
                 ),
             )
@@ -2015,35 +2327,35 @@ class UnifiedMeditationSessionViewModel(
                 MeditationStep(
                     "Focus Foundation",
                     "Building concentration",
-                    "Sit comfortably with your spine tall and relaxed. Let your hands rest easily in your lap. Close your eyes and bring your attention to the breath—specifically, the point where the air enters and leaves your nostrils. Choose this spot as your anchor. Whenever your mind wanders, gently return to this anchor without judgment. This simple act of returning is how focus is strengthened. Build the foundation of your concentration with kindness and consistency.",
+                    "Sit comfortably with your spine tall and relaxed. Let your hands rest easily in your lap. Close your eyes and bring your attention to the breath--specifically, the point where the air enters and leaves your nostrils. Choose this spot as your anchor. Whenever your mind wanders, gently return to this anchor without judgment. This simple act of returning is how focus is strengthened. Build the foundation of your concentration with kindness and consistency.",
                     stepDuration
                 ),
 
                 MeditationStep(
                     "Sustained Attention",
                     "Deepening concentration",
-                    "Continue to rest your awareness on the breath. Watch each inhale and each exhale, with steady interest. When thoughts or emotions arise, note them silently—'thinking', 'planning', 'remembering'—and return to the breath. No need to analyze or resist. Just gently come back. This repeated return trains the mind, like strengthening a muscle. Let the breath be your home, your point of stillness in the flow of thoughts.",
+                    "Continue to rest your awareness on the breath. Watch each inhale and each exhale, with steady interest. When thoughts or emotions arise, note them silently--'thinking', 'planning', 'remembering'--and return to the breath. No need to analyze or resist. Just gently come back. This repeated return trains the mind, like strengthening a muscle. Let the breath be your home, your point of stillness in the flow of thoughts.",
                     stepDuration
                 ),
 
                 MeditationStep(
                     "Stable Focus",
                     "Strengthening attention",
-                    "Now, begin to notice the growing stability in your attention. Maybe you can stay with the breath for longer stretches. The distractions may still arise, but they pass more quickly. Your awareness feels clearer. Continue to rest with the breath as a steady friend. Each time you notice a shift, stay with the experience of returning. Concentration doesn't mean forcing—it means allowing the mind to settle naturally, again and again.",
+                    "Now, begin to notice the growing stability in your attention. Maybe you can stay with the breath for longer stretches. The distractions may still arise, but they pass more quickly. Your awareness feels clearer. Continue to rest with the breath as a steady friend. Each time you notice a shift, stay with the experience of returning. Concentration doesn't mean forcing--it means allowing the mind to settle naturally, again and again.",
                     stepDuration
                 ),
 
                 MeditationStep(
                     "Deep Concentration",
                     "Absorbed focus",
-                    "Let yourself become fully immersed in the breath. Let it fill your awareness completely. There is no room for distraction—only breath and presence. Time slows. Thought fades. You may begin to experience a subtle joy in this simplicity. This is not about perfection—it's about being here, fully absorbed in one thing. Let your attention rest in this pure, focused awareness.",
+                    "Let yourself become fully immersed in the breath. Let it fill your awareness completely. There is no room for distraction--only breath and presence. Time slows. Thought fades. You may begin to experience a subtle joy in this simplicity. This is not about perfection--it's about being here, fully absorbed in one thing. Let your attention rest in this pure, focused awareness.",
                     stepDuration
                 ),
 
                 MeditationStep(
                     "Effortless Focus",
                     "Natural concentration",
-                    "Notice how your concentration has evolved. You're no longer trying to focus—it’s simply happening. Your breath and awareness are one. Let the effort dissolve into natural presence. You are resting in clarity and alertness. Stay in this spacious focus, letting it nourish your mind. This effortless awareness is available anytime you return to the breath.",
+                    "Notice how your concentration has evolved. You're no longer trying to focus--it’s simply happening. Your breath and awareness are one. Let the effort dissolve into natural presence. You are resting in clarity and alertness. Stay in this spacious focus, letting it nourish your mind. This effortless awareness is available anytime you return to the breath.",
                     stepDuration
                 )
             )
@@ -2052,35 +2364,35 @@ class UnifiedMeditationSessionViewModel(
                 MeditationStep(
                     "Zen Posture",
                     "Establishing perfect balance",
-                    "Sit in a position that is grounded yet light—spine erect, hands resting gently. Imagine a string gently pulling the top of your head upward. Your chin is slightly tucked, jaw relaxed. Feel your body stable, symmetrical, and still. Let the posture itself bring awareness. In Zen, posture and presence are not separate. Be fully in your body, in this exact moment.",
+                    "Sit in a position that is grounded yet light--spine erect, hands resting gently. Imagine a string gently pulling the top of your head upward. Your chin is slightly tucked, jaw relaxed. Feel your body stable, symmetrical, and still. Let the posture itself bring awareness. In Zen, posture and presence are not separate. Be fully in your body, in this exact moment.",
                     stepDuration
                 ),
 
                 MeditationStep(
                     "Just Sitting",
                     "Pure meditation practice",
-                    "Let go of all techniques. Simply sit. Don’t seek to gain or attain. Just be with what is, exactly as it is. You may notice the breath, or simply the raw sense of sitting. Let go of control. Let go of effort. Just sit. If thoughts come, don’t resist or chase them. Let them come and go, like wind through an open window. There is nowhere to get to—this is it.",
+                    "Let go of all techniques. Simply sit. Don’t seek to gain or attain. Just be with what is, exactly as it is. You may notice the breath, or simply the raw sense of sitting. Let go of control. Let go of effort. Just sit. If thoughts come, don’t resist or chase them. Let them come and go, like wind through an open window. There is nowhere to get to--this is it.",
                     stepDuration
                 ),
 
                 MeditationStep(
                     "Witnessing Mind",
                     "Observing without attachment",
-                    "Allow yourself to become the silent witness. Notice whatever arises—sensations, sounds, feelings, thoughts—but remain unmoved. You are not what appears. You are the space in which it appears. Don’t cling or push away. Just observe, effortlessly. The mind becomes quiet when it is not resisted. Awareness remains untouched, like the sky watching clouds.",
+                    "Allow yourself to become the silent witness. Notice whatever arises--sensations, sounds, feelings, thoughts--but remain unmoved. You are not what appears. You are the space in which it appears. Don’t cling or push away. Just observe, effortlessly. The mind becomes quiet when it is not resisted. Awareness remains untouched, like the sky watching clouds.",
                     stepDuration
                 ),
 
                 MeditationStep(
                     "Empty Presence",
                     "Resting in spaciousness",
-                    "Now feel into the vast spaciousness of being. There is no center, no edges—just pure awareness. There is nothing to solve or fix. Just be empty, open, and present. This is not emptiness in the negative sense—but the fullness of no resistance. Feel the quiet aliveness of this moment. Let go into the simplicity of pure presence.",
+                    "Now feel into the vast spaciousness of being. There is no center, no edges--just pure awareness. There is nothing to solve or fix. Just be empty, open, and present. This is not emptiness in the negative sense--but the fullness of no resistance. Feel the quiet aliveness of this moment. Let go into the simplicity of pure presence.",
                     stepDuration
                 ),
 
                 MeditationStep(
                     "Buddha Nature",
                     "Recognizing your true nature",
-                    "Recognize that this peaceful awareness—this silent presence—is your original nature. It has always been here. You are not your thoughts, roles, or emotions. Beneath all appearances, your true nature is luminous, awake, and free. There is nothing to add or remove. Rest in this knowing, and let it shine quietly through your whole being.",
+                    "Recognize that this peaceful awareness--this silent presence--is your original nature. It has always been here. You are not your thoughts, roles, or emotions. Beneath all appearances, your true nature is luminous, awake, and free. There is nothing to add or remove. Rest in this knowing, and let it shine quietly through your whole being.",
                     stepDuration
                 ),
 

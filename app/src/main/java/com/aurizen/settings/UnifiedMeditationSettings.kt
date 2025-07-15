@@ -20,6 +20,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import com.aurizen.data.BackgroundSound
 import com.aurizen.data.BinauralTone
+import com.aurizen.data.CueFrequency
+import com.aurizen.data.PauseLength
+import com.aurizen.data.PersonalizationLevel
+import com.aurizen.data.CueStyle
 import com.aurizen.utils.MeditationAudioManager
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -103,6 +107,11 @@ fun UnifiedMeditationSettingsDialog(
                                 onClick = { currentTab = 1 },
                                 text = { Text("Voice") }
                             )
+                            Tab(
+                                selected = currentTab == 2,
+                                onClick = { currentTab = 2 },
+                                text = { Text("Pacing") }
+                            )
                         }
                     }
                 }
@@ -127,6 +136,7 @@ fun UnifiedMeditationSettingsDialog(
                         onTtsVolumeChange = onTtsVolumeChange
                     )
                     1 -> VoiceSettingsTab(settings, context, onTtsSpeedChange, onTtsPitchChange, onTtsVolumeChange)
+                    2 -> PacingSettingsTab(settings)
                 }
             }
         }
@@ -977,5 +987,330 @@ private fun getVoiceGenderFromName(name: String): String {
         lowerName.contains("alex") && !lowerName.contains("alexa") -> "male"
         
         else -> "unknown"
+    }
+}
+
+@Composable
+fun PacingSettingsTab(settings: MeditationSettings) {
+    var gentleCueFrequency by remember { mutableStateOf(settings.getCueFrequency()) }
+    var pauseLength by remember { mutableStateOf(settings.getPauseLength()) }
+    var personalizationLevel by remember { mutableStateOf(settings.getPersonalizationLevel()) }
+    var enableGentleCues by remember { mutableStateOf(settings.getEnableGentleCues()) }
+    var breathingSync by remember { mutableStateOf(settings.getBreathingSync()) }
+    var fadeInOut by remember { mutableStateOf(settings.getFadeInOut()) }
+    var preferredCueStyle by remember { mutableStateOf(settings.getPreferredCueStyle()) }
+    var instructionRatio by remember { mutableStateOf(settings.getInstructionToSilenceRatio()) }
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        item {
+            Card {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Meditation Pacing",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Text(
+                        text = "Customize how your meditation sessions are paced with intelligent guidance and practice periods.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    )
+                }
+            }
+        }
+
+        item {
+            Card {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Enable Gentle Cues",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Switch(
+                            checked = enableGentleCues,
+                            onCheckedChange = {
+                                enableGentleCues = it
+                                settings.setEnableGentleCues(it)
+                            }
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Text(
+                        text = "Gentle reminders during practice periods to help maintain focus",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    )
+                }
+            }
+        }
+
+        if (enableGentleCues) {
+            item {
+                Card {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "Gentle Cue Frequency",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        CueFrequency.values().forEach { frequency ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = gentleCueFrequency == frequency,
+                                    onClick = {
+                                        gentleCueFrequency = frequency
+                                        settings.setCueFrequency(frequency)
+                                    }
+                                )
+                                Column(modifier = Modifier.padding(start = 8.dp)) {
+                                    Text(
+                                        text = when (frequency) {
+                                            CueFrequency.NONE -> "None"
+                                            CueFrequency.LOW -> "Low"
+                                            CueFrequency.MEDIUM -> "Medium"
+                                            CueFrequency.HIGH -> "High"
+                                        },
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    Text(
+                                        text = when (frequency) {
+                                            CueFrequency.NONE -> "Pure silence during practice"
+                                            CueFrequency.LOW -> "Every 2-3 minutes"
+                                            CueFrequency.MEDIUM -> "Every 60-90 seconds"
+                                            CueFrequency.HIGH -> "Every 30-45 seconds"
+                                        },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            item {
+                Card {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "Cue Style",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        CueStyle.values().forEach { style ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = preferredCueStyle == style,
+                                    onClick = {
+                                        preferredCueStyle = style
+                                        settings.setPreferredCueStyle(style)
+                                    }
+                                )
+                                Column(modifier = Modifier.padding(start = 8.dp)) {
+                                    Text(
+                                        text = when (style) {
+                                            CueStyle.BREATHING_FOCUSED -> "Breathing Focused"
+                                            CueStyle.MINDFULNESS_FOCUSED -> "Mindfulness Focused"
+                                            CueStyle.RELAXATION_FOCUSED -> "Relaxation Focused"
+                                            CueStyle.BODY_AWARENESS -> "Body Awareness"
+                                            CueStyle.MIXED -> "Mixed"
+                                        },
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    Text(
+                                        text = when (style) {
+                                            CueStyle.BREATHING_FOCUSED -> "Focus on natural breathing"
+                                            CueStyle.MINDFULNESS_FOCUSED -> "Present moment awareness"
+                                            CueStyle.RELAXATION_FOCUSED -> "Deep relaxation cues"
+                                            CueStyle.BODY_AWARENESS -> "Body sensations and scanning"
+                                            CueStyle.MIXED -> "Variety of gentle reminders"
+                                        },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        item {
+            Card {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Personalization Level",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    PersonalizationLevel.values().forEach { level ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = personalizationLevel == level,
+                                onClick = {
+                                    personalizationLevel = level
+                                    settings.setPersonalizationLevel(level)
+                                }
+                            )
+                            Column(modifier = Modifier.padding(start = 8.dp)) {
+                                Text(
+                                    text = when (level) {
+                                        PersonalizationLevel.MINIMAL -> "Minimal"
+                                        PersonalizationLevel.ADAPTIVE -> "Adaptive"
+                                        PersonalizationLevel.GUIDED -> "Guided"
+                                    },
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                                Text(
+                                    text = when (level) {
+                                        PersonalizationLevel.MINIMAL -> "Basic instruction with minimal guidance"
+                                        PersonalizationLevel.ADAPTIVE -> "Adapts to your meditation experience"
+                                        PersonalizationLevel.GUIDED -> "More frequent gentle guidance"
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        item {
+            Card {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Instruction to Practice Ratio",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Text(
+                        text = "Instruction: ${(instructionRatio * 100).toInt()}% • Practice: ${((1f - instructionRatio) * 100).toInt()}%",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    
+                    Slider(
+                        value = instructionRatio,
+                        onValueChange = {
+                            instructionRatio = it
+                            settings.setInstructionToSilenceRatio(it)
+                        },
+                        valueRange = 0.1f..0.7f,
+                        steps = 11
+                    )
+                    
+                    Text(
+                        text = "Balance between spoken guidance and silent practice time",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                }
+            }
+        }
+
+        item {
+            Card {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Breathing Sync",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Switch(
+                            checked = breathingSync,
+                            onCheckedChange = {
+                                breathingSync = it
+                                settings.setBreathingSync(it)
+                            }
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Text(
+                        text = "Sync cues with natural breathing rhythm",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    )
+                }
+            }
+        }
+
+        item {
+            Card {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Fade Effects",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Switch(
+                            checked = fadeInOut,
+                            onCheckedChange = {
+                                fadeInOut = it
+                                settings.setFadeInOut(it)
+                            }
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Text(
+                        text = "Gentle fade in/out for cues and transitions",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    )
+                }
+            }
+        }
     }
 }

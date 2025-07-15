@@ -1,5 +1,6 @@
 package com.aurizen.ui.screens
 
+import android.util.Log
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -537,7 +538,7 @@ private fun ActiveSessionContent(
                         .verticalScroll(rememberScrollState())
                 ) {
                     Text(
-                        text = if (currentSentence.isNotEmpty()) currentSentence else step.guidance,
+                        text = currentSentence,
                         color = getContrastTextColor(),
                         fontSize = 16.sp,
                         lineHeight = 24.sp,

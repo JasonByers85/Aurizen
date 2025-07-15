@@ -5,6 +5,11 @@ import android.content.SharedPreferences
 import com.aurizen.data.BackgroundSound
 import com.aurizen.data.BinauralTone
 import com.aurizen.data.MeditationStatistics
+import com.aurizen.data.MeditationPacingPreferences
+import com.aurizen.data.CueFrequency
+import com.aurizen.data.PauseLength
+import com.aurizen.data.PersonalizationLevel
+import com.aurizen.data.CueStyle
 
 class MeditationSettings private constructor(context: Context) {
 
@@ -29,6 +34,16 @@ class MeditationSettings private constructor(context: Context) {
         private const val KEY_PREFERRED_DURATION = "preferred_duration"
         private const val KEY_REMINDER_ENABLED = "reminder_enabled"
         private const val KEY_REMINDER_TIME = "reminder_time"
+        
+        // Pacing preferences keys
+        private const val KEY_GENTLE_CUE_FREQUENCY = "gentle_cue_frequency"
+        private const val KEY_PAUSE_LENGTH = "pause_length"
+        private const val KEY_BREATHING_SYNC = "breathing_sync"
+        private const val KEY_PERSONALIZATION_LEVEL = "personalization_level"
+        private const val KEY_INSTRUCTION_TO_SILENCE_RATIO = "instruction_to_silence_ratio"
+        private const val KEY_ENABLE_GENTLE_CUES = "enable_gentle_cues"
+        private const val KEY_FADE_IN_OUT = "fade_in_out"
+        private const val KEY_PREFERRED_CUE_STYLE = "preferred_cue_style"
 
         @Volatile
         private var instance: MeditationSettings? = null
@@ -272,6 +287,118 @@ class MeditationSettings private constructor(context: Context) {
         prefs.edit().clear().apply()
     }
 
+    // Meditation Pacing Preferences
+    fun getPacingPreferences(): MeditationPacingPreferences {
+        return MeditationPacingPreferences(
+            gentleCueFrequency = getCueFrequency(),
+            pauseLength = getPauseLength(),
+            breathingSync = getBreathingSync(),
+            personalizationLevel = getPersonalizationLevel(),
+            instructionToSilenceRatio = getInstructionToSilenceRatio(),
+            enableGentleCues = getEnableGentleCues(),
+            fadeInOut = getFadeInOut(),
+            preferredCueStyle = getPreferredCueStyle()
+        )
+    }
+    
+    fun setPacingPreferences(preferences: MeditationPacingPreferences) {
+        prefs.edit().apply {
+            putString(KEY_GENTLE_CUE_FREQUENCY, preferences.gentleCueFrequency.name)
+            putString(KEY_PAUSE_LENGTH, preferences.pauseLength.name)
+            putBoolean(KEY_BREATHING_SYNC, preferences.breathingSync)
+            putString(KEY_PERSONALIZATION_LEVEL, preferences.personalizationLevel.name)
+            putFloat(KEY_INSTRUCTION_TO_SILENCE_RATIO, preferences.instructionToSilenceRatio)
+            putBoolean(KEY_ENABLE_GENTLE_CUES, preferences.enableGentleCues)
+            putBoolean(KEY_FADE_IN_OUT, preferences.fadeInOut)
+            putString(KEY_PREFERRED_CUE_STYLE, preferences.preferredCueStyle.name)
+        }.apply()
+    }
+    
+    // Individual pacing preference getters
+    fun getCueFrequency(): CueFrequency {
+        val frequency = prefs.getString(KEY_GENTLE_CUE_FREQUENCY, CueFrequency.MEDIUM.name)
+        return try {
+            CueFrequency.valueOf(frequency ?: CueFrequency.MEDIUM.name)
+        } catch (e: IllegalArgumentException) {
+            CueFrequency.MEDIUM
+        }
+    }
+    
+    fun setCueFrequency(frequency: CueFrequency) {
+        prefs.edit().putString(KEY_GENTLE_CUE_FREQUENCY, frequency.name).apply()
+    }
+    
+    fun getPauseLength(): PauseLength {
+        val length = prefs.getString(KEY_PAUSE_LENGTH, PauseLength.MEDIUM.name)
+        return try {
+            PauseLength.valueOf(length ?: PauseLength.MEDIUM.name)
+        } catch (e: IllegalArgumentException) {
+            PauseLength.MEDIUM
+        }
+    }
+    
+    fun setPauseLength(length: PauseLength) {
+        prefs.edit().putString(KEY_PAUSE_LENGTH, length.name).apply()
+    }
+    
+    fun getBreathingSync(): Boolean {
+        return prefs.getBoolean(KEY_BREATHING_SYNC, false)
+    }
+    
+    fun setBreathingSync(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_BREATHING_SYNC, enabled).apply()
+    }
+    
+    fun getPersonalizationLevel(): PersonalizationLevel {
+        val level = prefs.getString(KEY_PERSONALIZATION_LEVEL, PersonalizationLevel.ADAPTIVE.name)
+        return try {
+            PersonalizationLevel.valueOf(level ?: PersonalizationLevel.ADAPTIVE.name)
+        } catch (e: IllegalArgumentException) {
+            PersonalizationLevel.ADAPTIVE
+        }
+    }
+    
+    fun setPersonalizationLevel(level: PersonalizationLevel) {
+        prefs.edit().putString(KEY_PERSONALIZATION_LEVEL, level.name).apply()
+    }
+    
+    fun getInstructionToSilenceRatio(): Float {
+        return prefs.getFloat(KEY_INSTRUCTION_TO_SILENCE_RATIO, 0.3f)
+    }
+    
+    fun setInstructionToSilenceRatio(ratio: Float) {
+        prefs.edit().putFloat(KEY_INSTRUCTION_TO_SILENCE_RATIO, ratio).apply()
+    }
+    
+    fun getEnableGentleCues(): Boolean {
+        return prefs.getBoolean(KEY_ENABLE_GENTLE_CUES, true)
+    }
+    
+    fun setEnableGentleCues(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_ENABLE_GENTLE_CUES, enabled).apply()
+    }
+    
+    fun getFadeInOut(): Boolean {
+        return prefs.getBoolean(KEY_FADE_IN_OUT, true)
+    }
+    
+    fun setFadeInOut(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_FADE_IN_OUT, enabled).apply()
+    }
+    
+    fun getPreferredCueStyle(): CueStyle {
+        val style = prefs.getString(KEY_PREFERRED_CUE_STYLE, CueStyle.BREATHING_FOCUSED.name)
+        return try {
+            CueStyle.valueOf(style ?: CueStyle.BREATHING_FOCUSED.name)
+        } catch (e: IllegalArgumentException) {
+            CueStyle.BREATHING_FOCUSED
+        }
+    }
+    
+    fun setPreferredCueStyle(style: CueStyle) {
+        prefs.edit().putString(KEY_PREFERRED_CUE_STYLE, style.name).apply()
+    }
+
     // Export settings for backup
     fun exportSettings(): Map<String, Any> {
         return mapOf(
@@ -285,7 +412,16 @@ class MeditationSettings private constructor(context: Context) {
             "totalMeditationTime" to getTotalMeditationTime(),
             "preferredDuration" to getPreferredDuration(),
             "reminderEnabled" to isReminderEnabled(),
-            "reminderTime" to getReminderTime()
+            "reminderTime" to getReminderTime(),
+            // Pacing preferences
+            "gentleCueFrequency" to getCueFrequency().name,
+            "pauseLength" to getPauseLength().name,
+            "breathingSync" to getBreathingSync(),
+            "personalizationLevel" to getPersonalizationLevel().name,
+            "instructionToSilenceRatio" to getInstructionToSilenceRatio(),
+            "enableGentleCues" to getEnableGentleCues(),
+            "fadeInOut" to getFadeInOut(),
+            "preferredCueStyle" to getPreferredCueStyle().name
         )
     }
 }

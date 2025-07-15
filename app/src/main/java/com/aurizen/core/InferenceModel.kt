@@ -78,6 +78,13 @@ class InferenceModel private constructor(context: Context) {
         val inferenceOptions = LlmInference.LlmInferenceOptions.builder()
             .setModelPath(modelPath)
             .setMaxTokens(MAX_TOKENS)
+            .apply {
+                // Text-only optimizations for faster inference
+                if (model.textOnlyOptimized) {
+                    setMaxNumImages(0) // Disable image inputs for text-only performance
+                    Log.d(TAG, "Text-only optimizations enabled - multimodal features disabled")
+                }
+            }
             // TODO: Enable when 0.10.26+ is available on Maven Central
             // .setEnableAudioModality(true) // Enable audio support
             .apply { model.preferredBackend?.let { setPreferredBackend(it) } }

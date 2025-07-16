@@ -27,7 +27,8 @@ enum class PromptType {
     MEDITATION_MOOD_GUIDED,
     FUNCTION_CALLING,
     TEST_FUNCTION_CALLING,
-    WELLNESS_GUIDANCE
+    WELLNESS_GUIDANCE,
+    GOAL_MOTIVATION
 }
 
 data class FunctionInjection(
@@ -99,6 +100,7 @@ class PromptBuilder {
                 PromptType.FUNCTION_CALLING -> buildFunctionCallingPrompt()
                 PromptType.TEST_FUNCTION_CALLING -> buildTestFunctionCallingPrompt()
                 PromptType.WELLNESS_GUIDANCE -> buildWellnessGuidancePrompt(context)
+                PromptType.GOAL_MOTIVATION -> buildGoalMotivationPrompt(context)
             }
         }
         
@@ -193,6 +195,53 @@ IMPORTANT:
 - 2-3 focused paragraphs with specific, actionable steps
 - Address the person directly with warmth and understanding
 - Include both immediate relief techniques and longer-term strategies"""
+        }
+        
+        private fun buildGoalMotivationPrompt(context: PromptContext): String {
+            val goal = context.additionalContext["goal"] as? PersonalGoal
+            val userMemories = context.userMemories.take(3).joinToString("; ")
+            
+            if (goal == null) {
+                return """Provide brief, encouraging motivation for personal growth. Keep it realistic and supportive in 1-2 sentences."""
+            }
+            
+            val goalType = goal.getEffectiveGoalType()
+            val category = goal.category.displayName
+            val progress = goal.progress
+            val dailyProgress = goal.getEffectiveDailyProgress()
+            val isCompleted = goal.isCompleted
+            
+            val progressContext = when {
+                isCompleted -> "completed"
+                goalType == com.aurizen.data.GoalType.DAILY -> {
+                    when {
+                        dailyProgress.currentStreak >= 7 -> "${dailyProgress.currentStreak}-day streak"
+                        dailyProgress.currentStreak >= 3 -> "${dailyProgress.currentStreak}-day streak"
+                        dailyProgress.totalDaysCompleted > 0 -> "${dailyProgress.totalDaysCompleted} days completed"
+                        else -> "just starting"
+                    }
+                } 
+                else -> {
+                    when {
+                        progress >= 0.75f -> "75% complete"
+                        progress >= 0.5f -> "50% complete"
+                        progress >= 0.25f -> "25% complete"
+                        else -> "just starting"
+                    }
+                }
+            }
+            
+            val memoryContext = if (userMemories.isNotEmpty()) "\nUser context: $userMemories" else ""
+            
+            return """You are a supportive wellness coach. Give realistic, encouraging motivation for: "${goal.title}" ($category, $progressContext).$memoryContext
+
+Requirements:
+- 1-2 sentences maximum
+- Acknowledge their current progress
+- Be genuine and supportive, not overly enthusiastic
+- Focus on the specific goal and category
+- Use their personal context if relevant
+- Include 1 appropriate emoji"""
         }
         
         /**

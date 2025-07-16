@@ -50,7 +50,11 @@ import com.aurizen.data.PersonalGoalsStorage
 import com.aurizen.data.PersonalGoal
 import com.aurizen.data.GoalCategory
 import com.aurizen.data.GoalType
+import com.aurizen.data.MemoryStorage
 import com.aurizen.core.InferenceModel
+import com.aurizen.prompts.PromptBuilder
+import com.aurizen.prompts.PromptContext
+import com.aurizen.prompts.PromptType
 import com.google.mediapipe.tasks.genai.llminference.ProgressListener
 
 @Composable
@@ -725,7 +729,7 @@ private fun MotivationDialog(
         hasError = false
         try {
             val inferenceModel = InferenceModel.getInstance(context)
-            val prompt = buildMotivationPrompt(goal)
+            val prompt = buildMotivationPrompt(context, goal)
             
             // Use a simple progress listener that collects the full response
             var fullResponse = ""
@@ -802,48 +806,16 @@ private fun MotivationDialog(
     )
 }
 
-private fun buildMotivationPrompt(goal: PersonalGoal): String {
-    val goalType = goal.getEffectiveGoalType()
-    val category = goal.category
-    val progress = goal.progress
-    val dailyProgress = goal.getEffectiveDailyProgress()
-    val isCompleted = goal.isCompleted
+private fun buildMotivationPrompt(context: android.content.Context, goal: PersonalGoal): String {
+    val memoryStorage = MemoryStorage.getInstance(context)
+    val userMemories = memoryStorage.getAllMemories().take(3).map { it.memory }
     
-    val goalTypeText = if (goalType == GoalType.DAILY) "daily habit" else "one-time goal"
-    val categoryText = category.displayName.lowercase()
+    val promptContext = PromptContext(
+        userMemories = userMemories,
+        additionalContext = mapOf("goal" to goal)
+    )
     
-    val progressContext = when {
-        isCompleted -> "completed"
-        goalType == GoalType.DAILY -> {
-            when {
-                dailyProgress.currentStreak >= 7 -> "has a strong ${dailyProgress.currentStreak}-day streak"
-                dailyProgress.currentStreak >= 3 -> "has a ${dailyProgress.currentStreak}-day streak"
-                dailyProgress.totalDaysCompleted > 0 -> "has completed ${dailyProgress.totalDaysCompleted} days but may have missed some"
-                else -> "is just starting"
-            }
-        }
-        else -> {
-            when {
-                progress >= 0.75f -> "is 75% complete"
-                progress >= 0.5f -> "is halfway done"
-                progress >= 0.25f -> "is 25% complete"
-                else -> "is just starting"
-            }
-        }
-    }
-    
-    return """
-        You are AuriZen, a supportive wellness AI assistant. A user has a ${goalTypeText} called "${goal.title}" in the ${categoryText} category that ${progressContext}.
-        
-        Please provide a short, encouraging, and personalized motivational message (1-2 sentences) that:
-        - Acknowledges their current progress
-        - Provides specific encouragement for their situation
-        - Maintains a warm, supportive tone
-        - Focuses on wellness and personal growth
-        - Uses appropriate emojis to make it engaging
-        
-        Keep the message concise but meaningful, as if you're a caring friend who understands their wellness journey.
-    """.trimIndent()
+    return PromptBuilder.build(PromptType.GOAL_MOTIVATION, promptContext)
 }
 
 private fun getMotivationMessage(goal: PersonalGoal): String {

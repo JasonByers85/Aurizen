@@ -222,9 +222,7 @@ class FunctionCallingSystem private constructor(private val context: Context) {
      * Processes AI response to detect and handle function calls (meditation only now)
      */
     fun processAIResponse(response: String): FunctionCallResult {
-        Log.d(TAG, "🔍 Processing AI response for function calls:")
-        Log.d(TAG, "📄 Full response: '$response'")
-        Log.d(TAG, "📏 Response length: ${response.length}")
+        Log.d(TAG, "🔍 Processing AI response for function calls (length: ${response.length})")
         
         val functionCallPattern = Regex("FUNCTION_CALL:([A-Z_]+):(\\{[^}]*\\})")
         Log.d(TAG, "🔍 Using regex pattern: ${functionCallPattern.pattern}")
@@ -234,12 +232,7 @@ class FunctionCallingSystem private constructor(private val context: Context) {
         Log.d(TAG, "🔍 Found ${matchList.size} regex matches")
         
         if (matchList.isNotEmpty()) {
-            Log.d(TAG, "✅ Found function calls in response")
-            matchList.forEachIndexed { index, match ->
-                Log.d(TAG, "📋 Match $index: '${match.value}'")
-                Log.d(TAG, "📋 Function: '${match.groupValues[1]}'")
-                Log.d(TAG, "📋 Args: '${match.groupValues[2]}'")
-            }
+            Log.d(TAG, "✅ Found ${matchList.size} function calls in response")
             for (match in matches) {
                 val functionName = match.groupValues[1]
                 val argumentsJson = match.groupValues[2]

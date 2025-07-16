@@ -68,7 +68,10 @@ class MoodStorage private constructor(context: Context) {
                 mostCommonMood = "N/A",
                 moodDistribution = emptyMap(),
                 averageEntriesPerWeek = 0.0,
-                longestStreak = 0
+                longestStreak = 0,
+                averageEnergyLevel = 0f,
+                averageStressLevel = 0f,
+                mostCommonTriggers = emptyList()
             )
         }
         
@@ -88,12 +91,22 @@ class MoodStorage private constructor(context: Context) {
         // Calculate longest streak of consecutive days
         val longestStreak = calculateLongestStreak(entries)
         
+        // Calculate average energy and stress levels
+        val averageEnergyLevel = entries.map { it.energyLevel }.average().toFloat()
+        val averageStressLevel = entries.map { it.stressLevel }.average().toFloat()
+        
+        // Find most common triggers (simplified)
+        val mostCommonTriggers = emptyList<String>() // Simplified - no longer tracking triggers
+        
         return MoodStatistics(
             totalEntries = entries.size,
             mostCommonMood = mostCommonMood,
             moodDistribution = moodCounts,
             averageEntriesPerWeek = averageEntriesPerWeek,
-            longestStreak = longestStreak
+            longestStreak = longestStreak,
+            averageEnergyLevel = averageEnergyLevel,
+            averageStressLevel = averageStressLevel,
+            mostCommonTriggers = mostCommonTriggers
         )
     }
     
@@ -136,7 +149,10 @@ class MoodStorage private constructor(context: Context) {
 data class MoodEntry(
     val mood: String,
     val note: String,
-    val timestamp: Long
+    val timestamp: Long,
+    val energyLevel: Float = 3f, // 1-5 scale
+    val stressLevel: Float = 3f, // 1-5 scale
+    val triggers: List<String> = emptyList() // work, deadline, good news, love, exercise, sleep, etc.
 )
 
 data class MoodStatistics(
@@ -144,5 +160,8 @@ data class MoodStatistics(
     val mostCommonMood: String,
     val moodDistribution: Map<String, Int>,
     val averageEntriesPerWeek: Double,
-    val longestStreak: Int
+    val longestStreak: Int,
+    val averageEnergyLevel: Float = 0f,
+    val averageStressLevel: Float = 0f,
+    val mostCommonTriggers: List<String> = emptyList()
 )

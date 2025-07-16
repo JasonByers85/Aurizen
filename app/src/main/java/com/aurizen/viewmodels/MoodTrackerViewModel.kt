@@ -42,16 +42,19 @@ class MoodTrackerViewModel(
 
     fun loadMoodHistory() {
         viewModelScope.launch(Dispatchers.IO) {
-            _moodHistory.value = moodStorage.getAllMoodEntries()
+            _moodHistory.value = moodStorage.getAllMoodEntries().sortedBy { it.timestamp }
         }
     }
 
-    fun saveMood(mood: String, note: String) {
+    fun saveMood(mood: String, note: String, energyLevel: Float = 3f, stressLevel: Float = 3f, triggers: List<String> = emptyList()) {
         viewModelScope.launch(Dispatchers.IO) {
             val entry = MoodEntry(
                 mood = mood,
                 note = note,
-                timestamp = System.currentTimeMillis()
+                timestamp = System.currentTimeMillis(),
+                energyLevel = energyLevel,
+                stressLevel = stressLevel,
+                triggers = triggers
             )
 
             moodStorage.saveMoodEntry(entry)
@@ -146,13 +149,12 @@ Mood fluctuations are completely normal. Your commitment to tracking emotions sh
             dayFormat.format(Date(entry.timestamp))
         }.toSortedMap()
         
-        // Build chronological mood journey (last 10 days)
-        val moodJourney = groupedByDate.entries.toList().takeLast(10).joinToString("\n") { (date, entriesForDay) ->
+        // Build chronological mood journey (last 7 days)
+        val moodJourney = groupedByDate.entries.toList().takeLast(7).joinToString("\n") { (_, entriesForDay) ->
             val latestEntry = entriesForDay.maxByOrNull { entry -> entry.timestamp }!!
             val formattedDate = dateFormat.format(Date(latestEntry.timestamp))
-            val moodEmoji = getMoodEmoji(latestEntry.mood)
             val note = if (latestEntry.note.isNotBlank()) " - \"${latestEntry.note}\"" else ""
-            "$formattedDate: ${latestEntry.mood.replaceFirstChar { char -> char.uppercase() }} $moodEmoji$note"
+            "$formattedDate: ${latestEntry.mood.replaceFirstChar { char -> char.uppercase() }}$note"
         }
         
         // Calculate trends
@@ -166,6 +168,18 @@ Mood fluctuations are completely normal. Your commitment to tracking emotions sh
         val previousPositive = previousDays.count { (_, entriesForDay) ->
             val latestMoodForDay = entriesForDay.maxByOrNull { entry -> entry.timestamp }?.mood
             latestMoodForDay in listOf("ecstatic", "happy", "confident", "calm")
+        }
+        
+        // Calculate averages for energy and stress
+        val averageEnergy = recentEntries.map { it.energyLevel }.average()
+        val averageStress = recentEntries.map { it.stressLevel }.average()
+        
+        // Simple trigger analysis based on notes
+        val notesWithContent = recentEntries.filter { it.note.isNotBlank() }
+        val triggersText = if (notesWithContent.isNotEmpty()) {
+            "Based on ${notesWithContent.size} detailed entries"
+        } else {
+            "No detailed notes provided"
         }
         
         // Goals context with progress and timing
@@ -203,7 +217,7 @@ Mood fluctuations are completely normal. Your commitment to tracking emotions sh
         return """
 **Today's Date:** $today
 
-**Recent Mood Journey:** (Last ${groupedByDate.size} days)
+**Recent Mood Journey:** (Last 7 days)
 $moodJourney
 
 **Personal Goals Context:**
@@ -212,27 +226,11 @@ $goalsContext
 **Personal Context to Remember:**
 $memoriesContext
 
-**Quick Pattern Analysis:**
-- Total mood entries: $totalEntries
-- Most frequent mood: $dominantMood
-- Positive mood days this week: $recentPositive/${recentDays.size}
-- Previous week comparison: $previousPositive/${previousDays.size}
+**Quick Analysis:**
+- Average energy: ${"%.1f".format(averageEnergy)}/5, stress: ${"%.1f".format(averageStress)}/5
 - Trend: ${if (recentPositive >= previousPositive) "Stable or improving" else "Facing some challenges lately"}
+- Notes: $triggersText
         """.trimIndent()
-    }
-    
-    private fun getMoodEmoji(mood: String): String {
-        return when (mood) {
-            "happy" -> "😊"
-            "calm" -> "😌"
-            "ecstatic" -> "🤩"
-            "confident" -> "😎"
-            "sad" -> "😔"
-            "anxious" -> "😰"
-            "tired" -> "😴"
-            "stressed" -> "😫"
-            else -> "😐"
-        }
     }
     
     fun generateMeditationParams(): Triple<String, String, String> {

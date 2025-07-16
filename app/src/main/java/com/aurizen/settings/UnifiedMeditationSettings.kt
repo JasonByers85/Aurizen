@@ -166,9 +166,7 @@ private fun AudioMixerTab(
     var backgroundVolume by remember { mutableStateOf(settings.getVolume()) }
     var binauralVolume by remember { mutableStateOf(settings.getBinauralVolume()) }
 
-    var isVoicePlaying by remember { mutableStateOf(false) }
-    var isBackgroundPlaying by remember { mutableStateOf(false) }
-    var isBinauralPlaying by remember { mutableStateOf(false) }
+    // Play state variables removed - cleaner interface without play buttons
 
     var testTts by remember { mutableStateOf<TextToSpeech?>(null) }
     var audioManager by remember { mutableStateOf<MeditationAudioManager?>(null) }
@@ -279,24 +277,11 @@ private fun AudioMixerTab(
                 title = "Background Sound",
                 icon = Icons.Default.MusicNote,
                 volume = backgroundVolume,
-                isPlaying = isBackgroundPlaying,
                 onVolumeChange = {
                     backgroundVolume = it
                     settings.setVolume(it)
                     audioManager?.setVolume(it)
                     onBackgroundVolumeChange?.invoke(it)
-                },
-                onPlayStop = {
-                    if (isBackgroundPlaying) {
-                        audioManager?.stopBackgroundSound()
-                        isBackgroundPlaying = false
-                    } else {
-                        if (selectedBackground != BackgroundSound.NONE) {
-                            audioManager?.setVolume(backgroundVolume)
-                            audioManager?.playBackgroundSound(selectedBackground)
-                            isBackgroundPlaying = true
-                        }
-                    }
                 },
                 extraContent = {
                     Spacer(modifier = Modifier.height(8.dp))
@@ -311,10 +296,7 @@ private fun AudioMixerTab(
                                     selectedBackground = sound
                                     settings.setBackgroundSound(sound)
                                     onBackgroundSoundChange(sound)
-                                    if (isBackgroundPlaying) {
-                                        audioManager?.setVolume(backgroundVolume)
-                                        audioManager?.playBackgroundSound(sound)
-                                    }
+                                    // Background sound changed
                                 },
                                 label = { Text(sound.displayName, style = MaterialTheme.typography.labelSmall) },
                                 selected = selectedBackground == sound
@@ -331,24 +313,11 @@ private fun AudioMixerTab(
                 title = "Binaural Tones",
                 icon = Icons.Default.GraphicEq,
                 volume = binauralVolume,
-                isPlaying = isBinauralPlaying,
                 onVolumeChange = {
                     binauralVolume = it
                     settings.setBinauralVolume(it)
                     audioManager?.setBinauralVolume(it)
                     onBinauralVolumeChange?.invoke(it)
-                },
-                onPlayStop = {
-                    if (isBinauralPlaying) {
-                        audioManager?.stopBinauralTone()
-                        isBinauralPlaying = false
-                    } else {
-                        if (selectedBinaural != BinauralTone.NONE) {
-                            audioManager?.setBinauralVolume(binauralVolume)
-                            audioManager?.playBinauralTone(selectedBinaural)
-                            isBinauralPlaying = true
-                        }
-                    }
                 },
                 extraContent = {
                     Spacer(modifier = Modifier.height(12.dp))
@@ -365,15 +334,7 @@ private fun AudioMixerTab(
                                     selectedBinaural = tone
                                     settings.setBinauralTone(tone)
                                     onBinauralToneChange(tone)
-                                    if (isBinauralPlaying) {
-                                        if (tone != BinauralTone.NONE) {
-                                            audioManager?.setBinauralVolume(binauralVolume)
-                                            audioManager?.playBinauralTone(tone)
-                                        } else {
-                                            audioManager?.stopBinauralTone()
-                                            isBinauralPlaying = false
-                                        }
-                                    }
+                                    // Binaural tone changed
                                 },
                             colors = CardDefaults.cardColors(
                                 containerColor = if (isSelected) {
@@ -505,81 +466,7 @@ private fun AudioMixerTab(
         // Remove the separate description card since it's now integrated
         // Selected binaural tone description - REMOVED
 
-        // Play All / Stop All
-        item {
-            Card {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = {
-                            testTts?.stop()
-                            audioManager?.stopBackgroundSound()
-                            audioManager?.stopBinauralTone()
-                            isVoicePlaying = false
-                            isBackgroundPlaying = false
-                            isBinauralPlaying = false
-                        },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(Icons.Default.Stop, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Stop All")
-                    }
-
-                    Button(
-                        onClick = {
-                            if (selectedBackground != BackgroundSound.NONE) {
-                                audioManager?.setVolume(backgroundVolume)
-                                audioManager?.playBackgroundSound(selectedBackground)
-                                isBackgroundPlaying = true
-                            }
-                            if (selectedBinaural != BinauralTone.NONE) {
-                                audioManager?.setBinauralVolume(binauralVolume)
-                                audioManager?.playBinauralTone(selectedBinaural)
-                                isBinauralPlaying = true
-                            }
-                            testTts?.let { tts ->
-                                tts.setSpeechRate(settings.getTtsSpeed())
-                                tts.setPitch(settings.getTtsPitch())
-                                
-                                // Apply voice setting
-                                val savedVoice = settings.getTtsVoice()
-                                if (savedVoice.isNotEmpty()) {
-                                    tts.voices?.find { it.name == savedVoice }?.let { voice ->
-                                        tts.voice = voice
-                                    }
-                                }
-                                
-                                // Create bundle with volume parameter for TTS
-                                val params = Bundle().apply {
-                                    putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, voiceVolume)
-                                }
-                                tts.speak(
-                                    "Testing complete meditation audio experience with voice guidance, background sounds, and binaural tones.",
-                                    TextToSpeech.QUEUE_FLUSH,
-                                    params,
-                                    "full_test"
-                                )
-                            }
-                            isVoicePlaying = true
-                            CoroutineScope(Dispatchers.Main).launch {
-                                delay(8000)
-                                isVoicePlaying = false
-                            }
-                        },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Test Mix")
-                    }
-                }
-            }
-        }
+        // Test/Stop buttons removed for cleaner interface
     }
 }
 
@@ -588,9 +475,7 @@ private fun AudioChannelCard(
     title: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     volume: Float,
-    isPlaying: Boolean,
     onVolumeChange: (Float) -> Unit,
-    onPlayStop: () -> Unit,
     extraContent: @Composable (() -> Unit)? = null
 ) {
     Card {
@@ -617,13 +502,7 @@ private fun AudioChannelCard(
                     )
                 }
 
-                IconButton(onClick = onPlayStop) {
-                    Icon(
-                        if (isPlaying) Icons.Default.Stop else Icons.Default.PlayArrow,
-                        contentDescription = if (isPlaying) "Stop" else "Play",
-                        tint = if (isPlaying) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-                    )
-                }
+                // Play button removed for cleaner interface
             }
 
             Spacer(modifier = Modifier.height(8.dp))

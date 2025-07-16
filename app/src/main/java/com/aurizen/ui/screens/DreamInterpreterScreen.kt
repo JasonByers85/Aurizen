@@ -488,23 +488,110 @@ private fun DreamDiaryCard(
                 )
             }
             
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             
             // Action buttons
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 OutlinedButton(
                     onClick = { 
                         onRegenerateInterpretation(dream)
                         onTabSelected(0) // Switch back to interpreter tab
                     },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1.5f),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                 ) {
-                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Reinterpret", style = MaterialTheme.typography.labelSmall)
+                    Text(
+                        "Reinterpret", 
+                        style = MaterialTheme.typography.labelSmall,
+                        maxLines = 1
+                    )
+                }
+                
+                // Show "View Original" button for all dreams
+                var showOriginal by remember { mutableStateOf(false) }
+                
+                OutlinedButton(
+                    onClick = { showOriginal = !showOriginal },
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Visibility,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(3.dp))
+                    Text(
+                        "View",
+                        style = MaterialTheme.typography.labelSmall,
+                        maxLines = 1
+                    )
+                }
+                
+                // Show full interpretation in a dialog
+                if (showOriginal) {
+                    AlertDialog(
+                        onDismissRequest = { showOriginal = false },
+                        title = { 
+                            Text("Dream Interpretation")
+                        },
+                        text = { 
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 400.dp)
+                                    .verticalScroll(rememberScrollState())
+                            ) {
+                                // Show original dream text first
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                                    )
+                                ) {
+                                    Column(modifier = Modifier.padding(12.dp)) {
+                                        Text(
+                                            text = "Your Dream:",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = dream.description,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                                        )
+                                    }
+                                }
+                                
+                                Spacer(modifier = Modifier.height(16.dp))
+                                
+                                // Current interpretation only
+                                Text(
+                                    text = "Interpretation:",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = dream.interpretation,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+                        },
+                        confirmButton = {
+                            TextButton(onClick = { showOriginal = false }) {
+                                Text("Close")
+                            }
+                        }
+                    )
                 }
                 
                 IconButton(

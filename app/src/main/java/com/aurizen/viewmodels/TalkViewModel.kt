@@ -171,9 +171,6 @@ class TalkViewModel(
                 val messages = gson.fromJson<List<MultimodalChatMessage>>(historyJson, type)
                 
                 Log.d(TAG, "🔍 Parsed ${messages.size} messages from JSON")
-                messages.forEachIndexed { index, message ->
-                    Log.d(TAG, "📝 Message $index: ${message.getDisplayContent().take(50)}...")
-                }
                 
                 // Directly set the StateFlow value - this is the key fix
                 _chatHistory.value = messages
@@ -296,11 +293,7 @@ class TalkViewModel(
                 Log.d(TAG, "🎯 processUserInput started: '$userMessage'")
                 Log.d(TAG, "📊 Current chat history size: ${_chatHistory.value.size}")
                 
-                // Log the full chat history
-                Log.d(TAG, "📚 Full chat history:")
-                _chatHistory.value.forEachIndexed { index, message ->
-                    Log.d(TAG, "  [$index] ${message.side}: ${message.getDisplayContent().take(100)}...")
-                }
+                // Chat history size logged above for debugging
                 
                 _isProcessing.value = true
 
@@ -499,6 +492,8 @@ class TalkViewModel(
 
     private fun cleanTextForTTS(text: String): String {
         return text
+            // Remove function call patterns (safety net) - matches FunctionCallingSystem pattern
+            .replace(Regex("FUNCTION_CALL:([A-Z_]+):(\\{[^}]*\\})"), "")
             // Remove markdown formatting
             .replace("**", "")
             .replace("*", "")

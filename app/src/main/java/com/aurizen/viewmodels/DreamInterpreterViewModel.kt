@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
 import com.aurizen.prompts.PromptBuilder
 import com.aurizen.prompts.PromptType
+import com.aurizen.prompts.PromptContext
 import com.aurizen.core.InferenceModel
 import com.aurizen.data.DreamStorage
 import com.aurizen.data.UserProfile
@@ -136,6 +137,31 @@ Dreams often reflect our daily experiences, emotions, and subconscious thoughts.
         }
     }
     
+    private fun saveRegeneratedDreamEntry(originalEntry: DreamEntry, newInterpretation: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            // Generate brief summary for diary view
+            val summary = generateDreamSummary(originalEntry.description, newInterpretation)
+            
+            val regeneratedEntry = DreamEntry(
+                description = originalEntry.description,
+                interpretation = newInterpretation,
+                timestamp = originalEntry.timestamp, // Preserve original timestamp
+                summary = summary
+            )
+
+            // Delete the old entry and save the new one
+            dreamStorage.deleteDreamEntry(originalEntry)
+            dreamStorage.saveDreamEntry(regeneratedEntry)
+
+            // Update user profile
+            userProfile.addTopic("dreams")
+            userProfile.saveProfile(context)
+
+            // Reload history
+            loadDreamHistory()
+        }
+    }
+    
     private suspend fun generateDreamSummary(description: String, interpretation: String): String {
         return try {
             val summaryPrompt = """Based on this dream and its interpretation, provide a single brief sentence (maximum 15 words) that captures the core subconscious meaning or theme. Be precise and insightful.
@@ -174,14 +200,61 @@ Respond with only the summary sentence, nothing else."""
     }
     
     fun regenerateInterpretation(dreamEntry: DreamEntry) {
-        // Delete the old entry and reinterpret
+        // Store original entry and reinterpret while preserving timestamp
         viewModelScope.launch(Dispatchers.IO) {
-            dreamStorage.deleteDreamEntry(dreamEntry)
-            loadDreamHistory()
+            // Don't delete original entry yet - preserve for fallback
+            val originalEntry = dreamEntry
             
             // Switch back to main interpretation view and start new interpretation
             _interpretation.value = ""
-            interpretDream(dreamEntry.description)
+            
+            try {
+                _isLoading.value = true
+                _isInputEnabled.value = false
+
+                val context = PromptContext()
+                val systemPrompt = PromptBuilder.build(PromptType.DREAM_INTERPRETER, context)
+                val fullPrompt = "$systemPrompt\n\nDream: \"${originalEntry.description}\""
+
+                var fullResponse = ""
+                val responseJob = inferenceModel.generateResponseAsync(fullPrompt) { partialResult, done ->
+                    if (partialResult.isNotEmpty()) {
+                        fullResponse += partialResult
+                        _interpretation.value = fullResponse
+                        
+                        if (_isLoading.value) {
+                            _isLoading.value = false
+                        }
+                    }
+
+                    if (done) {
+                        _isLoading.value = false
+                        _isInputEnabled.value = true
+
+                        // Save regenerated entry with original timestamp and preserve original interpretation
+                        saveRegeneratedDreamEntry(originalEntry, fullResponse)
+                    }
+                }
+
+                responseJob.get()
+
+            } catch (e: Exception) {
+                _interpretation.value = """I'm having trouble regenerating the interpretation. Here are some general insights about dreams:
+
+**Common Dream Themes:**
+Dreams often reflect our daily experiences, emotions, and subconscious thoughts. They can help us process feelings, solve problems, or explore our fears and desires.
+
+**Reflection Questions:**
+• How did you feel during the dream?
+• What emotions lingered after waking?
+• Do any elements remind you of recent experiences?
+• What might your subconscious be trying to tell you?
+
+**Remember:** Dreams are highly personal. The most meaningful interpretation is often the one that resonates with you. Consider keeping a dream journal to track patterns over time."""
+
+                _isLoading.value = false
+                _isInputEnabled.value = true
+            }
         }
     }
     

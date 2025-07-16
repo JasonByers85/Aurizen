@@ -11,7 +11,7 @@ import com.google.mediapipe.tasks.genai.llminference.ProgressListener
 import java.io.File
 
 /** The maximum number of tokens the model can process. */
-var MAX_TOKENS = 1024  // Increased for better responses
+var MAX_TOKENS = 4096  // Increased for better responses
 
 /**
  * Simplified inference model for wellness platform
@@ -108,6 +108,7 @@ class InferenceModel private constructor(context: Context) {
             .setTemperature(model.temperature)
             .setTopK(model.topK)
             .setTopP(model.topP)
+
             .build()
 
         try {

@@ -276,19 +276,19 @@ class MeditationAudioManager(private val context: Context) {
     fun setVolume(volume: Float) {
         backgroundVolume = volume
         mediaPlayer?.setVolume(volume, volume)
-        Log.d(TAG, "Set background volume to: $volume")
+        // Background volume updated
     }
 
     fun setBinauralVolume(volume: Float) {
         binauralVolume = volume
-        Log.d(TAG, "Set binaural volume to: $volume")
+        // Binaural volume updated
         // Note: For active binaural tones, volume change will apply to new audio generation cycles
     }
     
     // TTS Volume Control - returns the volume level for TTS engine to use
     fun setTtsVolume(volume: Float) {
         ttsVolumeLevel = volume
-        Log.d(TAG, "Set TTS volume level to: $volume")
+        // TTS volume updated
     }
     
     fun getTtsVolume(): Float = ttsVolumeLevel
